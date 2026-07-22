@@ -1,0 +1,17 @@
+# React
+node_modules/
+build/
+dist/
+
+# Spring Boot
+target/
+
+# IDE
+.idea/
+.vscode/
+
+# Archives
+*.zip
+
+# Logs
+*.log
