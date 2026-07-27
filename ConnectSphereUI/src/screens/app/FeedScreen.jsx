@@ -270,52 +270,100 @@ function FeedScreen({ myInterests, profilePic }) {
     //     }
     // };
 
-    useEffect(() => {
-    let isMounted = true;
+//     useEffect(() => {
+//     let isMounted = true;
 
-    fetchMyJoinedEvents()
-        .then((res) => {
-            if (!isMounted) return;
+//     fetchMyJoinedEvents()
+//         .then((res) => {
+//             if (!isMounted) return;
             
-            // 1. Check first for cancellations as they take absolute priority
-            const canceledEvent = res?.data?.find(ev => ev.needsCancellationNotification === true);
-            if (canceledEvent) {
-                setPendingNotification(canceledEvent);
-                setNotificationType("cancellation");
-                return; // Stop checking further if a cancellation is found
-            }
+//             // 1. Check first for cancellations as they take absolute priority
+//             const canceledEvent = res?.data?.find(ev => ev.needsCancellationNotification === true);
+//             if (canceledEvent) {
+//                 setPendingNotification(canceledEvent);
+//                 setNotificationType("cancellation");
+//                 return; // Stop checking further if a cancellation is found
+//             }
 
-            // 2. Fallback to standard date/time adjustments
-            const updatedEvent = res?.data?.find(ev => ev.needsNotification === true);
-            if (updatedEvent) {
-                setPendingNotification(updatedEvent);
-                setNotificationType("update");
-            }
-        })
-        .catch((err) => console.error("Error verifying event updates:", err));
+//             // 2. Fallback to standard date/time adjustments
+//             const updatedEvent = res?.data?.find(ev => ev.needsNotification === true);
+//             if (updatedEvent) {
+//                 setPendingNotification(updatedEvent);
+//                 setNotificationType("update");
+//             }
+//         })
+//         .catch((err) => console.error("Error verifying event updates:", err));
 
-    return () => { isMounted = false; };
-}, []);
+//     return () => { isMounted = false; };
+// }, []);
 
-const handleDismissNotification = async () => {
-    if (!pendingNotification) return;
-    try {
-        // Dynamically call the correct endpoint depending on the type of notification
-        if (notificationType === "cancellation") {
-            await acknowledgeEventCancellation(pendingNotification.id);
-        } else {
-            await acknowledgeEventUpdate(pendingNotification.id);
-        }
+// const handleDismissNotification = async () => {
+//     if (!pendingNotification) return;
+//     try {
+//         // Dynamically call the correct endpoint depending on the type of notification
+//         if (notificationType === "cancellation") {
+//             await acknowledgeEventCancellation(pendingNotification.id);
+//         } else {
+//             await acknowledgeEventUpdate(pendingNotification.id);
+//         }
         
-        // Reset both states to dismiss the popup cleanly
-        setPendingNotification(null);
-        setNotificationType(null);
-    } catch (err) {
-        console.error("Failed to clear notification target:", err);
-        setPendingNotification(null);
-        setNotificationType(null);
-    }
-};
+//         // Reset both states to dismiss the popup cleanly
+//         setPendingNotification(null);
+//         setNotificationType(null);
+//     } catch (err) {
+//         console.error("Failed to clear notification target:", err);
+//         setPendingNotification(null);
+//         setNotificationType(null);
+//     }
+// };
+
+
+// // ── Notification Center States ───────────────────────────────────────────
+// const [notifications, setNotifications] = useState([]); // List of events with unread alerts
+// const [showNotifDrawer, setShowNotifDrawer] = useState(false);
+
+// const loadNotifications = () => {
+//     fetchMyJoinedEvents()
+//         .then((res) => {
+//             const list = res?.data || [];
+//             // Filter events that need EITHER cancellation OR schedule update notification
+//             const unreadNotifs = list.filter(
+//                 ev => ev.needsCancellationNotification || ev.needsNotification
+//             );
+//             setNotifications(unreadNotifs);
+//         })
+//         .catch((err) => console.error("Error loading notifications:", err));
+// };
+
+// useEffect(() => {
+//     loadNotifications();
+// }, []);
+
+// Dismiss a single notification item
+// const handleDismissSingle = async (ev) => {
+//     try {
+//         if (ev.needsCancellationNotification) {
+//             await acknowledgeEventCancellation(ev.id);
+//         } else {
+//             await acknowledgeEventUpdate(ev.id);
+//         }
+//         // Refresh local notification list
+//         setNotifications(prev => prev.filter(item => item.id !== ev.id));
+//     } catch (err) {
+//         console.error("Failed to dismiss notification:", err);
+//     }
+// };
+
+// // Clear all notifications
+// const handleClearAllNotifs = async () => {
+//     try {
+//         await acknowledgeAllEventNotices(notifications);
+//         setNotifications([]);
+//         setShowNotifDrawer(false);
+//     } catch (err) {
+//         console.error("Failed to clear all notifications:", err);
+//     }
+// };
 
     const handleLike = async (post) => {
         const isLiked = liked[post.id];
@@ -757,7 +805,7 @@ const handleDismissNotification = async () => {
                 </div>
             )} */}
 
-            {pendingNotification && (
+            {/* {pendingNotification && (
     <div style={{
         position: "absolute", inset: 0, background: "rgba(26, 26, 46, 0.6)",
         display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999,
@@ -808,7 +856,7 @@ const handleDismissNotification = async () => {
             </button>
         </div>
     </div>
-)}
+)} */}
         </div>
     );
 }

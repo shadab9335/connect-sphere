@@ -81,3 +81,17 @@ export async function acknowledgeEventCancellation(eventId) {
     });
     return res.json();
 }
+
+/** Dismiss all updates/cancellations at once */
+export async function acknowledgeAllEventNotices(eventList) {
+    const promises = eventList.map(ev => {
+        if (ev.needsCancellationNotification) {
+            return acknowledgeEventCancellation(ev.id);
+        }
+        if (ev.needsNotification) {
+            return acknowledgeEventUpdate(ev.id);
+        }
+        return Promise.resolve();
+    });
+    return Promise.all(promises);
+}
