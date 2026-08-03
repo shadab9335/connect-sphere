@@ -15,3 +15,11 @@ target/
 
 # Logs
 *.log
+
+# Ignore log files
+**/logs/
+*.log
+*.gz
+
+# Ignore build output
+**/target/
