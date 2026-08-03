@@ -1,6 +1,8 @@
 package com.hobbyconnect.feedservice.controller;
 
 import com.hobbyconnect.feedservice.dto.Dtos.*;
+import com.hobbyconnect.feedservice.model.Notification;
+import com.hobbyconnect.feedservice.repository.NotificationRepository;
 import com.hobbyconnect.feedservice.service.FeedService;
 import com.hobbyconnect.feedservice.util.JwtUtil;
 import jakarta.validation.Valid;
@@ -252,5 +254,32 @@ public class FeedController {
                     .body(ApiResponse.error("You can only view your own bookmarks"));
         }
         return ResponseEntity.ok(ApiResponse.ok(feedService.getBookmarkedPosts(userId)));
+    }
+
+    private final NotificationRepository notificationRepo;
+
+    @GetMapping("/notifications")
+    public ResponseEntity<ApiResponse<List<Notification>>> getMyNotifications(
+            @RequestHeader("Authorization") String authHeader) {
+        String userId = jwtUtil.extractUserIdFromHeader(authHeader);
+        List<Notification> list = notificationRepo.findByRecipientUserIdAndReadFalseOrderByCreatedAtDesc(userId);
+        return ResponseEntity.ok(ApiResponse.ok(list));
+    }
+
+    @DeleteMapping("/notifications/{id}")
+    public ResponseEntity<ApiResponse<Void>> dismissNotification(
+            @RequestHeader("Authorization") String authHeader,
+            @PathVariable String id) {
+        String userId = jwtUtil.extractUserIdFromHeader(authHeader);
+        notificationRepo.deleteByRecipientUserIdAndId(userId, id);
+        return ResponseEntity.ok(ApiResponse.ok("Notification dismissed", null));
+    }
+
+    @DeleteMapping("/notifications/clear-all")
+    public ResponseEntity<ApiResponse<Void>> clearAllNotifications(
+            @RequestHeader("Authorization") String authHeader) {
+        String userId = jwtUtil.extractUserIdFromHeader(authHeader);
+        notificationRepo.deleteAllByRecipientUserId(userId);
+        return ResponseEntity.ok(ApiResponse.ok("All notifications cleared", null));
     }
 }

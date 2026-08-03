@@ -535,17 +535,43 @@ export default function App() {
   const [showNotifDrawer, setShowNotifDrawer] = useState(false);
 
   // Fetch notifications upon login / onboarding status
-  const loadNotifications = () => {
-    fetchMyJoinedEvents()
-      .then((res) => {
-        const list = res?.data || [];
-        const unreadNotifs = list.filter(
-          ev => ev.needsCancellationNotification || ev.needsNotification
-        );
-        setNotifications(unreadNotifs);
-      })
-      .catch((err) => console.error("Error loading notifications:", err));
-  };
+ const loadNotifications = async () => {
+  try {
+    const token = localStorage.getItem("token");
+
+    // 1. Fetch Event Schedule Updates & Cancellations
+    const eventsRes = await fetchMyJoinedEvents().catch(() => ({ data: [] }));
+    const eventAlerts = (eventsRes?.data || []).filter(
+      ev => ev.needsCancellationNotification || ev.needsNotification
+    ).map(ev => ({
+      id: ev.id,
+      isEventNotif: true,
+      isCanceled: ev.needsCancellationNotification,
+      title: ev.title,
+      date: ev.date,
+      time: ev.time,
+    }));
+
+    // 2. Fetch Post Like Notifications from your backend Feed Controller
+    const notifRes = await fetch("http://localhost:8082/api/feed/notifications", {
+      headers: { Authorization: `Bearer ${token}` }
+    }).then(r => r.json()).catch(() => ({ data: [] }));
+
+    const postLikeAlerts = (notifRes?.data || []).map(n => ({
+      id: n.id,
+      isEventNotif: false, // 👈 Marks this item as a post-like notification!
+      actorName: n.actorName,
+      actorProfilePic: n.actorProfilePic,
+      message: n.message,
+      postImageThumbnail: n.postImageThumbnail,
+    }));
+
+    // Merge both into the single notifications array state
+    setNotifications([...eventAlerts, ...postLikeAlerts]);
+  } catch (err) {
+    console.error("Error loading notifications:", err);
+  }
+};
 
   // Fetch live profilePicture from DB whenever the user logs in
   useEffect(() => {
@@ -561,30 +587,84 @@ export default function App() {
   }, [onboarded]);
 
   // Handle single notification dismissal
-  const handleDismissSingle = async (ev) => {
-    try {
-      if (ev.needsCancellationNotification) {
-        await acknowledgeEventCancellation(ev.id);
-      } else {
-        await acknowledgeEventUpdate(ev.id);
-      }
-      setNotifications(prev => prev.filter(item => item.id !== ev.id));
-    } catch (err) {
-      console.error("Failed to dismiss notification:", err);
-    }
-  };
+  // const handleDismissSingle = async (ev) => {
+  //   try {
+  //     if (ev.needsCancellationNotification) {
+  //       await acknowledgeEventCancellation(ev.id);
+  //     } else {
+  //       await acknowledgeEventUpdate(ev.id);
+  //     }
+  //     setNotifications(prev => prev.filter(item => item.id !== ev.id));
+  //   } catch (err) {
+  //     console.error("Failed to dismiss notification:", err);
+  //   }
+  // };
 
   // Handle clear all notifications
-  const handleClearAllNotifs = async () => {
-    try {
-      await acknowledgeAllEventNotices(notifications);
-      setNotifications([]);
-      setShowNotifDrawer(false);
-    } catch (err) {
-      console.error("Failed to clear all notifications:", err);
-    }
-  };
+  // const handleClearAllNotifs = async () => {
+  //   try {
+  //     await acknowledgeAllEventNotices(notifications);
+  //     setNotifications([]);
+  //     setShowNotifDrawer(false);
+  //   } catch (err) {
+  //     console.error("Failed to clear all notifications:", err);
+  //   }
+  // };
 
+
+  // Dismiss a single notification item
+const handleDismissSingle = async (item) => {
+    try {
+        const token = localStorage.getItem("token");
+
+        if (item.isEventNotif) {
+            // Event Service (8083)
+            if (item.isCanceled) {
+                await acknowledgeEventCancellation(item.id);
+            } else {
+                await acknowledgeEventUpdate(item.id);
+            }
+        } else {
+            // Feed Service (8082)
+            await fetch(`http://localhost:8082/api/feed/notifications/${item.id}`, {
+                method: "DELETE",
+                headers: { Authorization: `Bearer ${token}` }
+            });
+        }
+
+        // Remove from local screen state
+        setNotifications(prev => prev.filter(notif => notif.id !== item.id));
+    } catch (err) {
+        console.error("Failed to dismiss notification:", err);
+    }
+};
+
+// Clear all notifications
+const handleClearAllNotifs = async () => {
+    try {
+        const token = localStorage.getItem("token");
+
+        // 1. Clear Event notifications if any exist
+        const eventNotifs = notifications.filter(n => n.isEventNotif);
+        if (eventNotifs.length > 0) {
+            await acknowledgeAllEventNotices(eventNotifs);
+        }
+
+        // 2. Clear Post notifications in FeedService (8082)
+        const postNotifs = notifications.filter(n => !n.isEventNotif);
+        if (postNotifs.length > 0) {
+            await fetch("http://localhost:8082/api/feed/notifications/clear-all", {
+                method: "DELETE",
+                headers: { Authorization: `Bearer ${token}` }
+            });
+        }
+
+        setNotifications([]);
+        setShowNotifDrawer(false);
+    } catch (err) {
+        console.error("Failed to clear all notifications:", err);
+    }
+};
   const [authStep, setAuthStep] = useState(0);
   const [empId, setEmpId] = useState("");
   const [fullName, setFullName] = useState("");
@@ -957,125 +1037,180 @@ export default function App() {
             )}
           </div>
 
-          {/* ── Notification Center Drawer / Modal ─────────────────────────────── */}
-          {showNotifDrawer && tab==="feed" &&(
-            <>
-              {/* Backdrop Overlay */}
-              <div 
-                onClick={() => setShowNotifDrawer(false)} 
-                style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 9998 }} 
-              />
+         {/* ── Notification Center Drawer / Modal ─────────────────────────────── */}
+{showNotifDrawer && tab === "feed" && (
+  <>
+    {/* Backdrop Overlay */}
+    <div 
+      onClick={() => setShowNotifDrawer(false)} 
+      style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 9998 }} 
+    />
 
-              {/* Floating Drawer Sheet */}
-              <div style={{
-                position: "absolute",
-                top: 65,
-                right: 12,
-                left: 12,
-                maxHeight: "65vh",
-                background: "#FFFFFF",
-                borderRadius: 20,
-                zIndex: 9999,
-                boxShadow: "0 10px 30px rgba(0,0,0,0.25)",
-                display: "flex",
-                flexDirection: "column",
-                overflow: "hidden",
-                border: `1.5px solid ${COLORS.border || '#e0e0e0'}`,
-              }}>
-                {/* Header */}
-                <div style={{
+    {/* Floating Drawer Sheet */}
+    <div style={{
+      position: "absolute",
+      top: 65,
+      right: 12,
+      left: 12,
+      maxHeight: "65vh",
+      background: "#FFFFFF",
+      borderRadius: 20,
+      zIndex: 9999,
+      boxShadow: "0 10px 30px rgba(0,0,0,0.25)",
+      display: "flex",
+      flexDirection: "column",
+      overflow: "hidden",
+      border: `1.5px solid ${COLORS.border || '#e0e0e0'}`,
+    }}>
+      {/* Header */}
+      <div style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        padding: "12px 16px",
+        borderBottom: `1px solid ${COLORS.border || '#e0e0e0'}`,
+        background: "#F8F7FF"
+      }}>
+        <div style={{ fontWeight: 800, fontSize: 14, fontFamily: "'DM Sans', sans-serif", color: COLORS.text || '#333' }}>
+          🔔 Notifications ({notifications.length})
+        </div>
+        
+        {notifications.length > 0 && (
+          <button 
+            onClick={handleClearAllNotifs}
+            style={{
+              background: "none", border: "none", color: "#6C63FF",
+              fontSize: 12, fontWeight: 700, cursor: "pointer",
+              fontFamily: "'DM Sans', sans-serif"
+            }}
+          >
+            Clear All
+          </button>
+        )}
+      </div>
+
+      {/* Body Item List */}
+      <div style={{ flex: 1, overflowY: "auto", padding: "12px", scrollbarWidth: "none" }}>
+        {notifications.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "30px 10px", color: COLORS.muted || '#888', fontFamily: "'DM Sans', sans-serif", fontSize: 13 }}>
+            🎉 All caught up! No new notifications.
+          </div>
+        ) : (
+          notifications.map(item => {
+            // ── CASE 1: Post Like Notification ──
+            if (!item.isEventNotif) {
+              return (
+                <div key={item.id} style={{
+                  background: "#F8F7FF",
+                  border: "1.5px solid #E2E8F0",
+                  borderRadius: 14,
+                  padding: "10px 12px",
+                  marginBottom: 10,
                   display: "flex",
-                  justifyContent: "space-between",
                   alignItems: "center",
-                  padding: "12px 16px",
-                  borderBottom: `1px solid ${COLORS.border || '#e0e0e0'}`,
-                  background: "#F8F7FF"
+                  justifyContent: "space-between",
+                  gap: 10
                 }}>
-                  <div style={{ fontWeight: 800, fontSize: 14, fontFamily: "'DM Sans', sans-serif", color: COLORS.text || '#333' }}>
-                    🔔 Notifications ({notifications.length})
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
+                    <Avatar 
+                      image={item.actorProfilePic || avatarDinosaur} 
+                      size={32} 
+                      backgroundColor="#E2E8F0"
+                    />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: COLORS.text || '#1b1d23', fontFamily: "'DM Sans', sans-serif" }}>
+                        <strong>{item.actorName}</strong> liked your post.
+                      </div>
+                    </div>
                   </div>
-                  
-                  {notifications.length > 0 && (
+
+                  {/* Condensed Post Image Thumbnail */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                    {item.postImageThumbnail && (
+                      <img 
+                        src={item.postImageThumbnail} 
+                        alt="Post Thumbnail" 
+                        style={{
+                          width: 36,
+                          height: 36,
+                          borderRadius: 8,
+                          objectFit: "cover",
+                          border: "1px solid #CBD5E1"
+                        }}
+                      />
+                    )}
                     <button 
-                      onClick={handleClearAllNotifs}
-                      style={{
-                        background: "none", border: "none", color: "#6C63FF",
-                        fontSize: 12, fontWeight: 700, cursor: "pointer",
-                        fontFamily: "'DM Sans', sans-serif"
-                      }}
+                      onClick={() => handleDismissSingle(item)}
+                      style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: "#94A3B8", fontWeight: "bold" }}
+                      title="Dismiss"
                     >
-                      Clear All
+                      ✕
                     </button>
-                  )}
+                  </div>
+                </div>
+              );
+            }
+
+            // ── CASE 2: Event Update / Cancellation Notification ──
+            const isCanceled = item.needsCancellationNotification || item.isCanceled;
+            return (
+              <div 
+                key={item.id}
+                style={{
+                  background: isCanceled ? "#FEF2F2" : "#F8F7FF",
+                  border: isCanceled ? "1.5px solid #FCA5A5" : "1.5px solid #C7D2FE",
+                  borderRadius: 14,
+                  padding: "10px 12px",
+                  marginBottom: 10,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 4
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{
+                    fontSize: 10,
+                    fontWeight: 800,
+                    color: isCanceled ? "#EF4444" : "#4F46E5",
+                    fontFamily: "'DM Sans', sans-serif",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.5px"
+                  }}>
+                    {isCanceled ? "🚨 Event Canceled" : "📅 Schedule Changed"}
+                  </span>
+                  <button 
+                    onClick={() => handleDismissSingle(item)}
+                    style={{
+                      background: "none", border: "none", cursor: "pointer",
+                      fontSize: 12, color: COLORS.muted || '#888', fontWeight: "bold"
+                    }}
+                    title="Dismiss"
+                  >
+                    ✕
+                  </button>
                 </div>
 
-                {/* Body Item List */}
-                <div style={{ flex: 1, overflowY: "auto", padding: "12px", scrollbarWidth: "none" }}>
-                  {notifications.length === 0 ? (
-                    <div style={{ textAlign: "center", padding: "30px 10px", color: COLORS.muted || '#888', fontFamily: "'DM Sans', sans-serif", fontSize: 13 }}>
-                      🎉 All caught up! No new notifications.
-                    </div>
+                <div style={{ fontWeight: 800, fontSize: 13, color: COLORS.text || '#333', fontFamily: "'DM Sans', sans-serif" }}>
+                  {item.title}
+                </div>
+
+                <div style={{ fontSize: 11, color: "#4A5568", fontFamily: "'DM Sans', sans-serif" }}>
+                  {isCanceled ? (
+                    "The host has canceled this event. It has been removed from your schedule."
                   ) : (
-                    notifications.map(ev => {
-                      const isCanceled = ev.needsCancellationNotification;
-                      return (
-                        <div 
-                          key={ev.id}
-                          style={{
-                            background: isCanceled ? "#FEF2F2" : "#F8F7FF",
-                            border: isCanceled ? "1.5px solid #FCA5A5" : "1.5px solid #C7D2FE",
-                            borderRadius: 14,
-                            padding: "10px 12px",
-                            marginBottom: 10,
-                            display: "flex",
-                            flexDirection: "column",
-                            gap: 4
-                          }}
-                        >
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                            <span style={{
-                              fontSize: 10,
-                              fontWeight: 800,
-                              color: isCanceled ? "#EF4444" : "#4F46E5",
-                              fontFamily: "'DM Sans', sans-serif",
-                              textTransform: "uppercase",
-                              letterSpacing: "0.5px"
-                            }}>
-                              {isCanceled ? "🚨 Event Canceled" : "📅 Schedule Changed"}
-                            </span>
-                            <button 
-                              onClick={() => handleDismissSingle(ev)}
-                              style={{
-                                background: "none", border: "none", cursor: "pointer",
-                                fontSize: 12, color: COLORS.muted || '#888', fontWeight: "bold"
-                              }}
-                              title="Dismiss"
-                            >
-                              ✕
-                            </button>
-                          </div>
-
-                          <div style={{ fontWeight: 800, fontSize: 13, color: COLORS.text || '#333', fontFamily: "'DM Sans', sans-serif" }}>
-                            {ev.title}
-                          </div>
-
-                          <div style={{ fontSize: 11, color: "#4A5568", fontFamily: "'DM Sans', sans-serif" }}>
-                            {isCanceled ? (
-                              "The host has canceled this event. It has been removed from your schedule."
-                            ) : (
-                              <>
-                                New timing: <strong>{ev.date}</strong> at <strong>{ev.time ? dayjs(`2026-01-01T${ev.time}`).format('hh:mm A') : ''}</strong>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })
+                    <>
+                      New timing: <strong>{item.date}</strong> at <strong>{item.time ? dayjs(`2026-01-01T${item.time}`).format('hh:mm A') : ''}</strong>
+                    </>
                   )}
                 </div>
               </div>
-            </>
-          )}
+            );
+          })
+        )}
+      </div>
+    </div>
+  </>
+)}
         </div>
       </div>
     </LocalizationProvider>

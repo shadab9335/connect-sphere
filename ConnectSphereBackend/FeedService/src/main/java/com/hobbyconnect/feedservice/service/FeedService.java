@@ -5,10 +5,12 @@ import com.hobbyconnect.feedservice.dto.Dtos.*;
 import com.hobbyconnect.feedservice.exception.ResourceNotFoundException;
 import com.hobbyconnect.feedservice.exception.UnauthorizedException;
 import com.hobbyconnect.feedservice.model.FeedPost;
+import com.hobbyconnect.feedservice.model.Notification;
 import com.hobbyconnect.feedservice.model.PostInteraction;
 import com.hobbyconnect.feedservice.model.PostInteraction.InteractionType;
 import com.hobbyconnect.feedservice.model.Reply;
 import com.hobbyconnect.feedservice.repository.FeedPostRepository;
+import com.hobbyconnect.feedservice.repository.NotificationRepository;
 import com.hobbyconnect.feedservice.repository.PostInteractionRepository;
 import com.hobbyconnect.feedservice.repository.ReplyRepository;
 import jakarta.validation.Valid;
@@ -33,6 +35,7 @@ public class FeedService {
     private final PostInteractionRepository interactionRepo;
     private final MediaStorageService mediaStorageService;
     private final UserServiceClient userServiceClient;
+    private final NotificationRepository notificationRepo;
 
     private static final DateTimeFormatter ISO_FMT =
             DateTimeFormatter.ISO_INSTANT.withZone(ZoneId.of("UTC"));
@@ -289,6 +292,87 @@ public class FeedService {
     // LIKES
     // ─────────────────────────────────────────────────────────────────────────
 
+//    public FeedPostResponse likePost(String postId, String userId) {
+//        FeedPost post = postRepo.findById(postId)
+//                .orElseThrow(() -> new ResourceNotFoundException("Post not found: " + postId));
+//        if (post.isDeleted()) {
+//            throw new ResourceNotFoundException("Post not found: " + postId);
+//        }
+//
+//        if (!interactionRepo.existsByUserIdAndPostIdAndType(userId, postId, InteractionType.LIKE)) {
+//            PostInteraction like = new PostInteraction();
+//            like.setUserId(userId);
+//            like.setPostId(postId);
+//            like.setType(InteractionType.LIKE);
+//            like.setCreatedAt(Instant.now());
+//            interactionRepo.save(like);
+//            post.setLikeCount(post.getLikeCount() + 1);
+//            post.setUpdatedAt(Instant.now());
+//            postRepo.save(post);
+//        }
+//
+//        return toPostResponse(post, userId);
+//    }
+//
+//    public FeedPostResponse unlikePost(String postId, String userId) {
+//        FeedPost post = postRepo.findById(postId)
+//                .orElseThrow(() -> new ResourceNotFoundException("Post not found: " + postId));
+//        if (post.isDeleted()) {
+//            throw new ResourceNotFoundException("Post not found: " + postId);
+//        }
+//
+//        interactionRepo.findByUserIdAndPostIdAndType(userId, postId, InteractionType.LIKE)
+//                .ifPresent(like -> {
+//                    interactionRepo.delete(like);
+//                    post.setLikeCount(Math.max(0, post.getLikeCount() - 1));
+//                    post.setUpdatedAt(Instant.now());
+//                    postRepo.save(post);
+//                });
+//
+//        return toPostResponse(post, userId);
+//    }
+
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // LIKES
+    // ─────────────────────────────────────────────────────────────────────────
+
+//    public FeedPostResponse likePost(String postId, String userId) {
+//        FeedPost post = postRepo.findById(postId)
+//                .orElseThrow(() -> new ResourceNotFoundException("Post not found: " + postId));
+//        if (post.isDeleted()) {
+//            throw new ResourceNotFoundException("Post not found: " + postId);
+//        }
+//
+//        if (!interactionRepo.existsByUserIdAndPostIdAndType(userId, postId, InteractionType.LIKE)) {
+//            // 1. Record interaction
+//            PostInteraction like = new PostInteraction();
+//            like.setUserId(userId);
+//            like.setPostId(postId);
+//            like.setType(InteractionType.LIKE);
+//            like.setCreatedAt(Instant.now());
+//            interactionRepo.save(like);
+//
+//            // 2. Initialize likedBy list if null
+//            if (post.getLikedBy() == null) {
+//                post.setLikedBy(new ArrayList<>());
+//            }
+//
+//            // 3. Append userId to likedBy list
+//            if (!post.getLikedBy().contains(userId)) {
+//                post.getLikedBy().add(userId);
+//            }
+//
+//            // 4. Update count and timestamp
+//            post.setLikeCount(post.getLikeCount() + 1);
+//            post.setUpdatedAt(Instant.now());
+//            postRepo.save(post);
+//        }
+//
+//        return toPostResponse(post, userId);
+//    }
+
+
     public FeedPostResponse likePost(String postId, String userId) {
         FeedPost post = postRepo.findById(postId)
                 .orElseThrow(() -> new ResourceNotFoundException("Post not found: " + postId));
@@ -303,9 +387,38 @@ public class FeedService {
             like.setType(InteractionType.LIKE);
             like.setCreatedAt(Instant.now());
             interactionRepo.save(like);
+
+            if (post.getLikedBy() == null) {
+                post.setLikedBy(new ArrayList<>());
+            }
+
+            if (!post.getLikedBy().contains(userId)) {
+                post.getLikedBy().add(userId);
+            }
+
             post.setLikeCount(post.getLikeCount() + 1);
             post.setUpdatedAt(Instant.now());
             postRepo.save(post);
+
+            // 🌟 CREATE NOTIFICATION IF LIKING SOMEONE ELSE'S POST
+            if (!post.getUserId().equals(userId)) {
+                UserProfileDto likerProfile = userServiceClient.getUserProfile(userId);
+
+                Notification notif = new Notification();
+                notif.setRecipientUserId(post.getUserId()); // Post author (User B)
+                notif.setActorUserId(userId);                // Liker (User A)
+                notif.setActorName(likerProfile.getDisplayName());
+                notif.setActorProfilePic(likerProfile.getProfilePicture());
+                notif.setPostId(postId);
+
+                // Get the post thumbnail (if the post has an image)
+                if (post.getImageDataList() != null && !post.getImageDataList().isEmpty()) {
+                    notif.setPostImageThumbnail(post.getImageDataList().get(0));
+                }
+
+                notif.setMessage(likerProfile.getDisplayName() + " liked your post.");
+                notificationRepo.save(notif);
+            }
         }
 
         return toPostResponse(post, userId);
@@ -321,6 +434,13 @@ public class FeedService {
         interactionRepo.findByUserIdAndPostIdAndType(userId, postId, InteractionType.LIKE)
                 .ifPresent(like -> {
                     interactionRepo.delete(like);
+
+                    // 1. Remove userId from likedBy list if present
+                    if (post.getLikedBy() != null) {
+                        post.getLikedBy().remove(userId);
+                    }
+
+                    // 2. Decrement count
                     post.setLikeCount(Math.max(0, post.getLikeCount() - 1));
                     post.setUpdatedAt(Instant.now());
                     postRepo.save(post);
@@ -487,6 +607,7 @@ public class FeedService {
         r.setVideoDataList(post.getVideoDataList());
         r.setLikeCount(post.getLikeCount());
         r.setReplyCount(post.getReplyCount());
+        r.setLikedBy(post.getLikedBy() != null ? post.getLikedBy() : new ArrayList<>());
         r.setEventStatus(post.getEventStatus());
         r.setEventDate(post.getEventDate());
         r.setEventLocation(post.getEventLocation());

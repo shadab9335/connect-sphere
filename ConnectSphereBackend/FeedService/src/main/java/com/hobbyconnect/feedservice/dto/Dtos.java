@@ -74,6 +74,7 @@ public class Dtos {
 
         private int likeCount;
         private int replyCount;
+        private List<String> likedBy;
         private String eventStatus;
         private String eventDate;
         private String eventLocation;

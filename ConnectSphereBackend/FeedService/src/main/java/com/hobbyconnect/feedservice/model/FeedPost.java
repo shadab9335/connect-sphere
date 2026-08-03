@@ -58,6 +58,13 @@ public class FeedPost {
     private String eventDate;
     private String eventLocation;
 
+    // ── Likes tracking ─────────────────────────────────────────────────────────
+    /**
+     * Holds the MongoDB ObjectIds (as Strings) of all users who have liked this post.
+     * Used for sending like notifications to the post owner.
+     */
+    private List<String> likedBy = new java.util.ArrayList<>();
+
     // ── Timestamps ─────────────────────────────────────────────────────────────
     @Indexed
     private Instant createdAt;
