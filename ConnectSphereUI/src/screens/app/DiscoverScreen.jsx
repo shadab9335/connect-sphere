@@ -116,4 +116,3 @@ function DiscoverScreen({ myInterests, setMyInterests }) {
     );
 }
 export default DiscoverScreen;
-
