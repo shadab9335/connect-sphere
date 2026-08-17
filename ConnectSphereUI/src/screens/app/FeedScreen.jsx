@@ -14,6 +14,7 @@ import SaveIconOutline from '../../images/save_icon_outline.png';
 import Checked from '../../images/checked.png';
 import Upcoming from '../../images/upcoming.png';
 import ComposeModal from "../../screens/app/ComposeModal";
+import CommentModal from "./CommentModal";
 import { fetchMyJoinedEvents, acknowledgeEventUpdate, acknowledgeEventCancellation } from "../../services/eventsService";
 import dayjs from 'dayjs';
 
@@ -171,6 +172,8 @@ function FeedScreen({ myInterests, profilePic }) {
     const tabsRef = useRef(null);
     const [pendingNotification, setPendingNotification] = useState(null);
     const [notificationType, setNotificationType] = useState(null);
+    const [activeCommentPostId, setActiveCommentPostId] = useState(null);
+    const [isCommentModalOpen, setIsCommentModalOpen] = useState(false);
 
     const loadFeed = async (tag, before) => {
         setLoading(true);
@@ -554,7 +557,11 @@ function FeedScreen({ myInterests, profilePic }) {
                                         }} />
                                         {post.likes}
                                     </button>
-                                    <button style={{
+                                    {/* Functional Comment Button */}
+                                    <button onClick={() => {
+                                        setActiveCommentPostId(post.id);
+                                        setIsCommentModalOpen(true);
+                                    }} style={{
                                         flex: 1, border: "none", background: "none", cursor: "pointer",
                                         display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
                                         color: COLORS.muted, fontSize: 12, fontFamily: "'DM Sans', sans-serif", fontWeight: 600, padding: "4px 0",
@@ -766,6 +773,27 @@ function FeedScreen({ myInterests, profilePic }) {
                 feedTabs={feedTabs}
                 TAG_COLOR={TAG_COLOR}
             />
+
+           {/* Put this near ComposeModal at the bottom of FeedScreen.jsx */}
+<CommentModal
+    isOpen={isCommentModalOpen}
+    onClose={() => {
+        setIsCommentModalOpen(false);
+        setActiveCommentPostId(null);
+    }}
+    postId={activeCommentPostId}
+    currentProfilePic={profilePic}
+    onCommentAdded={() => {
+        // Optimistically increment comment count on the active post
+        setPosts(prevPosts =>
+            prevPosts.map(p =>
+                p.id === activeCommentPostId
+                    ? { ...p, replies: (p.replies || 0) + 1 }
+                    : p
+            )
+        );
+    }}
+/>
 
             {/* ── Dynamic Schedule Change Notification Overlay Popup Appended Here ──
             {pendingNotification && (

@@ -517,6 +517,22 @@ public class FeedService {
         post.setReplyCount(post.getReplyCount() + 1);
         post.setUpdatedAt(Instant.now());
         postRepo.save(post);
+        // 🌟 CREATE NOTIFICATION IF REPLYING TO SOMEONE ELSE'S POST
+        if (!post.getUserId().equals(userId)) {
+            Notification notif = new Notification();
+            notif.setRecipientUserId(post.getUserId()); // Post author
+            notif.setActorUserId(userId);                // Commenter
+            notif.setActorName(profile.getDisplayName());
+            notif.setActorProfilePic(profile.getProfilePicture());
+            notif.setPostId(postId);
+
+            if (post.getImageDataList() != null && !post.getImageDataList().isEmpty()) {
+                notif.setPostImageThumbnail(post.getImageDataList().get(0));
+            }
+
+            notif.setMessage(profile.getDisplayName() + " commented on your post.");
+            notificationRepo.save(notif);
+        }
 
         return toReplyResponse(saved);
     }
@@ -657,6 +673,8 @@ public class FeedService {
         }
         return toPostResponse(post, requestingUserId, liveProfile);
     }
+
+
 
     private ReplyResponse toReplyResponse(Reply reply) {
         ReplyResponse r = new ReplyResponse();
