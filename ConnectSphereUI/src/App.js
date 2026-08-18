@@ -433,8 +433,8 @@ import EventsScreen from "./screens/app/EventsScreen";
 import ChatScreen from "./screens/app/ChatScreen";
 import ProfileScreen from "./screens/app/ProfileScreen";
 
-import WelcomeAuthScreen from "./screens/auth/WelcomeAuthScreen";
-import SignupIdentityScreen from "./screens/auth/SignupIdentityScreen";
+import WelcomeAuthScreen from "./screens/auth/WelcomeAuthScreen 1";
+import SignupIdentityScreen from "./screens/auth/SignupIdentityScreen 1";
 import SignupWorkLocationScreen from "./screens/auth/SignupWorkLocationScreen";
 import SignupInterestsScreen from "./screens/auth/SignupInterestsScreen";
 import BackgroundImage from './images/background_img.png';

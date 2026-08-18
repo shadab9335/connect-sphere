@@ -26,15 +26,17 @@ export default function WelcomeAuthScreen({ onNext, onLogin, error }) {
             localStorage.setItem("userContext", JSON.stringify(response.data));
             onLogin(response.data);
         } catch (err) {
-            console.error("Login failed:", err);
-            onLogin({ success: false });
+            const msg = err?.response?.data?.message || "";
+            if (msg === "WRONG_PASSWORD") setLocalError("WRONG_PASSWORD");
+            else if (msg === "WRONG_ID") setLocalError("WRONG_ID");
+            else setLocalError("WRONG_ID");
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <div style={{ padding: 28 }}>
+        <div style={{ padding: 28, display: "flex", flexDirection: "column", height: "100%", boxSizing: "border-box" }}>
             {/* Title */}
             <div
                 style={{
@@ -62,22 +64,29 @@ export default function WelcomeAuthScreen({ onNext, onLogin, error }) {
                 Sign in to continue or create a new account
             </div>
 
-            {/* Inline error messages (local validation OR server-side credential error) */}
-            {displayedError === "INVALID_CREDENTIALS" && (
-                <div style={{ color: "#FF3B30", fontSize: 12, marginBottom: 16, textAlign: "center", fontWeight: 500 }}>
-                    Invalid employee ID or password
-                </div>
-            )}
-
-            {displayedError === "ID_INVALID_FORMAT" && (
-                <div style={{ color: "#FF3B30", fontSize: 12, marginBottom: 16, textAlign: "center", fontWeight: 500 }}>
-                    ID must start with 'E' followed by 4 digits (e.g., E1042)
-                </div>
-            )}
-
-            {displayedError === "EMPTY_FIELDS" && (
-                <div style={{ color: "#FF3B30", fontSize: 12, marginBottom: 16, textAlign: "center", fontWeight: 500 }}>
-                    Please enter both employee ID and password
+            {/* Inline error messages */}
+            {displayedError && (
+                <div style={{
+                    display: "flex", alignItems: "center", gap: 10,
+                    background: "rgba(255, 59, 48, 0.15)",
+                    border: "1.5px solid rgba(255, 59, 48, 0.5)",
+                    borderRadius: 12,
+                    padding: "12px 14px",
+                    marginBottom: 16,
+                }}>
+                    <div style={{
+                        color: "#ff6b6b",
+                        fontSize: 13,
+                        fontWeight: 400,
+                        fontFamily: "'DM Sans', sans-serif",
+                        lineHeight: 1.4,
+                    }}>
+                        {displayedError === "WRONG_ID" && "Employee ID not found. Please check and try again."}
+                        {displayedError === "WRONG_PASSWORD" && "Wrong password. Please try again."}
+                        {displayedError === "INVALID_CREDENTIALS" && "Invalid employee ID or password."}
+                        {displayedError === "ID_INVALID_FORMAT" && "ID must start with 'E' followed by 4 digits (e.g., E1042)"}
+                        {displayedError === "EMPTY_FIELDS" && "Please enter both employee ID and password"}
+                    </div>
                 </div>
             )}
 
@@ -147,10 +156,8 @@ export default function WelcomeAuthScreen({ onNext, onLogin, error }) {
             >
                 {loading ? "Authenticating..." : "Login"}
             </button>
-            {/* GIF---------------------------------------------- */}
-            <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
-                {/* <img src={LoginGif} alt="Login Animation" style={{ width: 200, height: 200 }} /> */}
-            </div>
+            {/* Spacer pushes signup link to bottom */}
+            <div style={{ flex: 1 }} />
 
             {/* Signup Link */}
             <button
@@ -158,14 +165,15 @@ export default function WelcomeAuthScreen({ onNext, onLogin, error }) {
                 style={{
                     width: "100%",
                     background: "transparent",
-                    color: 'rgb(5, 1, 147)',
+                    color: "rgb(5, 1, 147)",
                     border: "none",
+                    borderRadius: 14,
                     padding: 12,
                     fontWeight: 600,
                     fontSize: 14,
                     fontFamily: "'DM Sans', sans-serif",
                     cursor: "pointer",
-                    marginTop: '390px'
+                    marginBottom: 8,
                 }}
             >
                 New user? Sign up
