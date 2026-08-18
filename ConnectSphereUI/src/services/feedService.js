@@ -50,3 +50,50 @@ export const deletePost = (id) =>
 
 export const updatePost = (id, payload) =>
     axios.put(`${FEED_BASE}/posts/${id}`, payload, { headers: authHeader() });
+
+// // Fetch comments for a post
+// export const getReplies = async (postId) => {
+//   const response = await api.get(`/api/feed/posts/${postId}/replies`);
+//   return response.data;
+// };
+
+// // Add a comment to a post
+// export const addReply = async (postId, content, isAnonymous = false) => {
+//   const response = await api.post(`/api/feed/posts/${postId}/replies`, {
+//     content,
+//     anonymous: isAnonymous
+//   });
+//   return response.data;
+// };
+
+// // Delete a comment
+// export const deleteReply = async (replyId) => {
+//   await api.delete(`/api/feed/replies/${replyId}`);
+// };
+
+export const getReplies = async (postId) => {
+  const response = await axios.get(
+    `${FEED_BASE}/posts/${postId}/replies`,
+    { headers: authHeader() }
+  );
+  return response.data;
+};
+
+export const addReply = async (postId, content, isAnonymous = false) => {
+  const response = await axios.post(
+    `${FEED_BASE}/posts/${postId}/replies`,
+    {
+      content,
+      anonymous: isAnonymous
+    },
+    { headers: authHeader() }
+  );
+  return response.data;
+};
+
+export const deleteReply = async (replyId) => {
+  await axios.delete(
+    `${FEED_BASE}/replies/${replyId}`,
+    { headers: authHeader() }
+  );
+};

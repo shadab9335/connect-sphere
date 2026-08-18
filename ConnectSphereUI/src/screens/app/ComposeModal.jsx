@@ -30,6 +30,12 @@ export default function ComposeModal({ isOpen, onClose, onPostSuccess, profilePi
             return;
         }
         
+        // Validation check for mandatory photo/video upload
+        if (!postMediaFiles || postMediaFiles.length === 0) {
+            setValidationError("Please attach at least one photo or video before sharing your post!");
+            return;
+        }
+
         setValidationError("");
         setPosting(true);
 
@@ -216,13 +222,13 @@ export default function ComposeModal({ isOpen, onClose, onPostSuccess, profilePi
                         <span style={{ fontSize: 12, color: COLORS.muted, fontFamily: "'DM Sans', sans-serif" }}>Post anonymously</span>
                     </div>
                     
-                    <button onClick={handlePost} disabled={posting || !postText.trim()} style={{
-                        background: (posting || !postText.trim()) ? COLORS.border : "linear-gradient(135deg, rgb(41, 27, 95), rgba(108, 99, 255, 0.8))", 
-                        color: (posting || !postText.trim()) ? COLORS.muted : "white", 
+                     <button onClick={handlePost} disabled={posting} style={{
+                        background: posting ? COLORS.border : "linear-gradient(135deg, rgb(41, 27, 95), rgba(108, 99, 255, 0.8))", 
+                        color: posting ? COLORS.muted : "white", 
                         border: "none", borderRadius: 12, padding: "10px 22px", 
-                        fontWeight: 700, fontSize: 13, cursor: (posting || !postText.trim()) ? "not-allowed" : "pointer",
+                        fontWeight: 700, fontSize: 13, cursor: posting ? "not-allowed" : "pointer",
                         fontFamily: "'DM Sans', sans-serif", 
-                        boxShadow: (posting || !postText.trim()) ? "none" : `0 4px 14px ${COLORS.primary}44`,
+                        boxShadow: posting ? "none" : `0 4px 14px ${COLORS.primary}44`,
                     }}>
                         {posting ? "Posting…" : "Share ✦"}
                     </button>
