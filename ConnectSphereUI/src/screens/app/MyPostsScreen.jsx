@@ -993,10 +993,10 @@ import {
 } from "../../services/feedService";
 
 const TAG_COLORS = {
-    Cricket: "#6C63FF", Movies: "#FF6584", Travel: "#43E97B",
-    Running: "#FF6584", Cycling: "#38BDF8", Chess: "#FFB347",
-    Gaming: "#6C63FF", Photography: "#43E97B", Music: "#FF6584",
-    Cooking: "#FFB347", Yoga: "#38BDF8", General: "#8892B0",
+    Cricket: "#6C63FF", Movies: "#6C63FF", Travel: "#6C63FF",
+    Running: "#6C63FF", Cycling: "#6C63FF", Chess: "#6C63FF",
+    Gaming: "#6C63FF", Photography: "#6C63FF", Music: "#6C63FF",
+    Cooking: "#6C63FF", Yoga: "#6C63FF", General: "#6C63FF",
 };
 
 const normalizePost = (p) => ({

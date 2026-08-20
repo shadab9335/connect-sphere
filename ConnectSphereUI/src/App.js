@@ -719,11 +719,11 @@ const handleClearAllNotifs = async () => {
 
   const renderTab = () => {
     switch (tab) {
-      case "feed": return <FeedScreen myInterests={myInterests} profilePic={profilePic} />;
-      case "discover": return <DiscoverScreen myInterests={myInterests} setMyInterests={setMyInterests} />;
-      case "events": return <EventsScreen />;
-      case "chat": return <ChatScreen profilePic={profilePic} />;
-      case "profile": return <ProfileScreen myInterests={myInterests} setMyInterests={setMyInterests} profilePic={profilePic} setProfilePic={setProfilePic} onLogout={() => {
+    case "feed": return <FeedScreen myInterests={myInterests} profilePic={profilePic} />;
+    case "discover": return <DiscoverScreen myInterests={myInterests} setMyInterests={setMyInterests} />;
+    case "events": return <EventsScreen myInterests={myInterests} />;
+    case "chat": return <ChatScreen profilePic={profilePic} />;
+    case "profile": return <ProfileScreen myInterests={myInterests} setMyInterests={setMyInterests} profilePic={profilePic} setProfilePic={setProfilePic} onLogout={() => {
         localStorage.removeItem("token");
         localStorage.removeItem("user");
         setProfilePic(null);

@@ -344,10 +344,10 @@ import {
 } from "../../services/eventsService";
 
 const TAG_COLORS = {
-    Cricket: "#6C63FF", Movies: "#FF6584", Travel: "#43E97B",
-    Running: "#FF6584", Cycling: "#38BDF8", Chess: "#FFB347",
-    Gaming: "#6C63FF", Photography: "#43E97B", Music: "#FF6584",
-    Cooking: "#FFB347", Yoga: "#38BDF8", General: "#8892B0",
+    Cricket: "#6C63FF", Movies: "#6C63FF", Travel: "#6C63FF",
+    Running: "#6C63FF", Cycling: "#6C63FF", Chess: "#6C63FF",
+    Gaming: "#6C63FF", Photography: "#6C63FF", Music: "#6C63FF",
+    Cooking: "#6C63FF", Yoga: "#6C63FF", General: "#6C63FF",
 };
 
 const EVENT_GRADIENT = "linear-gradient(135deg, rgb(191 82 127), rgb(28 17 193 / 80%))";
@@ -483,7 +483,7 @@ function AttendeesDrawer({ event, onClose }) {
                                     {userInterests.length > 0 ? (
                                         <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 4 }}>
                                             {userInterests.map(interest => {
-                                                const c = TAG_COLORS[interest] || "#8892B0";
+                                                const c = TAG_COLORS[interest] || COLORS.primary;
                                                 return (
                                                     <span key={interest} style={{
                                                         background: `${c}18`, color: c,
