@@ -96,6 +96,9 @@ public class Dtos {
         private boolean anonymous;
         private String content;
         private String createdAt;
+
+        // 🌟 ADD THIS FIELD HERE:
+        private String profilePicture;
     }
 
     // ── FeedTabResponse ───────────────────────────────────────────────────────

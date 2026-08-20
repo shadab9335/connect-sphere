@@ -211,4 +211,26 @@ public class UserService {
         }
         return ("" + parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
     }
+
+    // ── BATCH GET PROFILES FOR FEEDSERVICE / EVENTSSERVICE ───────────────────
+    public ApiResponse getBatchProfiles(List<String> userIds) {
+        if (userIds == null || userIds.isEmpty()) {
+            return ApiResponse.success("Batch profiles fetched", Collections.emptyList());
+        }
+
+        // Fetch users by MongoDB ObjectIds (_id)
+        List<User> users = userRepository.findAllById(userIds);
+
+        List<Map<String, Object>> profileList = users.stream().map(user -> {
+            Map<String, Object> profile = new LinkedHashMap<>();
+            profile.put("userId", user.getId());
+            profile.put("displayName", user.getFullName());
+            profile.put("avatar", user.getAvatar());
+            profile.put("color", user.getAvatarColor());
+            profile.put("profilePicture", user.getProfilePicture()); // Base64 string
+            return profile;
+        }).collect(Collectors.toList());
+
+        return ApiResponse.success("Batch profiles fetched", profileList);
+    }
 }

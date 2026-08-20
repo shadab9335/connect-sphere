@@ -130,4 +130,10 @@ public class AuthController {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(Map.of("error", "User not found: " + userId));
     }
+
+    @PostMapping("/internal/users/batch")
+    public ResponseEntity<ApiResponse> getBatchProfiles(@RequestBody BatchProfileRequest request) {
+        ApiResponse response = userService.getBatchProfiles(request.getUserIds());
+        return ResponseEntity.ok(response);
+    }
 }

@@ -493,6 +493,51 @@ public class FeedService {
     // REPLIES
     // ─────────────────────────────────────────────────────────────────────────
 
+//    public ReplyResponse addReply(String postId, String userId,
+//                                  String content, boolean anonymous) {
+//        FeedPost post = postRepo.findById(postId)
+//                .orElseThrow(() -> new ResourceNotFoundException("Post not found: " + postId));
+//        if (post.isDeleted()) {
+//            throw new ResourceNotFoundException("Post not found: " + postId);
+//        }
+//
+//        UserProfileDto profile = userServiceClient.getUserProfile(userId);
+//
+//        Reply reply = new Reply();
+//        reply.setPostId(postId);
+//        reply.setUserId(userId);
+//        reply.setDisplayName(anonymous ? "Anonymous" : profile.getDisplayName());
+//        reply.setAvatar(anonymous ? "?"          : profile.getAvatar());
+//        reply.setAvatarColor(anonymous ? "#8892B0" : profile.getColor());
+//        reply.setAnonymous(anonymous);
+//        reply.setContent(content);
+//        reply.setCreatedAt(Instant.now());
+//
+//        Reply saved = replyRepo.save(reply);
+//        post.setReplyCount(post.getReplyCount() + 1);
+//        post.setUpdatedAt(Instant.now());
+//        postRepo.save(post);
+//        // 🌟 CREATE NOTIFICATION IF REPLYING TO SOMEONE ELSE'S POST
+//        if (!post.getUserId().equals(userId)) {
+//            Notification notif = new Notification();
+//            notif.setRecipientUserId(post.getUserId()); // Post author
+//            notif.setActorUserId(userId);                // Commenter
+//            notif.setActorName(profile.getDisplayName());
+//            notif.setActorProfilePic(profile.getProfilePicture());
+//            notif.setPostId(postId);
+//
+//            if (post.getImageDataList() != null && !post.getImageDataList().isEmpty()) {
+//                notif.setPostImageThumbnail(post.getImageDataList().get(0));
+//            }
+//
+//            notif.setMessage(profile.getDisplayName() + " commented on your post.");
+//            notificationRepo.save(notif);
+//        }
+//
+//        return toReplyResponse(saved);
+//    }
+
+
     public ReplyResponse addReply(String postId, String userId,
                                   String content, boolean anonymous) {
         FeedPost post = postRepo.findById(postId)
@@ -517,11 +562,11 @@ public class FeedService {
         post.setReplyCount(post.getReplyCount() + 1);
         post.setUpdatedAt(Instant.now());
         postRepo.save(post);
-        // 🌟 CREATE NOTIFICATION IF REPLYING TO SOMEONE ELSE'S POST
+
         if (!post.getUserId().equals(userId)) {
             Notification notif = new Notification();
-            notif.setRecipientUserId(post.getUserId()); // Post author
-            notif.setActorUserId(userId);                // Commenter
+            notif.setRecipientUserId(post.getUserId());
+            notif.setActorUserId(userId);
             notif.setActorName(profile.getDisplayName());
             notif.setActorProfilePic(profile.getProfilePicture());
             notif.setPostId(postId);
@@ -534,8 +579,20 @@ public class FeedService {
             notificationRepo.save(notif);
         }
 
-        return toReplyResponse(saved);
+        return toReplyResponse(saved, profile); // Pass profile object here
     }
+
+//    public List<ReplyResponse> getReplies(String postId) {
+//        FeedPost post = postRepo.findById(postId)
+//                .orElseThrow(() -> new ResourceNotFoundException("Post not found: " + postId));
+//        if (post.isDeleted()) {
+//            throw new ResourceNotFoundException("Post not found: " + postId);
+//        }
+//        return replyRepo.findByPostIdOrderByCreatedAtAsc(postId)
+//                .stream()
+//                .map(this::toReplyResponse)
+//                .collect(Collectors.toList());
+//    }
 
     public List<ReplyResponse> getReplies(String postId) {
         FeedPost post = postRepo.findById(postId)
@@ -543,9 +600,25 @@ public class FeedService {
         if (post.isDeleted()) {
             throw new ResourceNotFoundException("Post not found: " + postId);
         }
-        return replyRepo.findByPostIdOrderByCreatedAtAsc(postId)
-                .stream()
-                .map(this::toReplyResponse)
+
+        List<Reply> replies = replyRepo.findByPostIdOrderByCreatedAtAsc(postId);
+
+        // 1. Extract non-anonymous user IDs
+        List<String> userIds = replies.stream()
+                .filter(r -> !r.isAnonymous() && r.getUserId() != null)
+                .map(Reply::getUserId)
+                .distinct()
+                .collect(Collectors.toList());
+
+        // 2. Pre-fetch profiles in batch from UserAndInterest service
+        Map<String, UserProfileDto> userProfileMap = userServiceClient.getBatchUserProfiles(userIds);
+
+        // 3. Map replies with live profile pictures
+        return replies.stream()
+                .map(reply -> {
+                    UserProfileDto profile = reply.isAnonymous() ? null : userProfileMap.get(reply.getUserId());
+                    return toReplyResponse(reply, profile);
+                })
                 .collect(Collectors.toList());
     }
 
@@ -676,17 +749,46 @@ public class FeedService {
 
 
 
-    private ReplyResponse toReplyResponse(Reply reply) {
+//
+
+    private ReplyResponse toReplyResponse(Reply reply, UserProfileDto liveProfile) {
         ReplyResponse r = new ReplyResponse();
         r.setId(reply.getId());
         r.setPostId(reply.getPostId());
         r.setUserId(reply.isAnonymous() ? null : reply.getUserId());
-        r.setDisplayName(reply.getDisplayName());
-        r.setAvatar(reply.getAvatar());
-        r.setAvatarColor(reply.getAvatarColor());
         r.setAnonymous(reply.isAnonymous());
         r.setContent(reply.getContent());
         r.setCreatedAt(reply.getCreatedAt() != null ? ISO_FMT.format(reply.getCreatedAt()) : null);
+
+        if (reply.isAnonymous()) {
+            r.setDisplayName("Anonymous");
+            r.setAvatar("?");
+            r.setAvatarColor("#8892B0");
+            r.setProfilePicture(null);
+        } else if (liveProfile != null) {
+            r.setDisplayName(liveProfile.getDisplayName());
+            r.setAvatar(liveProfile.getAvatar());
+            r.setAvatarColor(liveProfile.getColor());
+            r.setProfilePicture(liveProfile.getProfilePicture()); // 🌟 Live profile picture
+        } else {
+            r.setDisplayName(reply.getDisplayName());
+            r.setAvatar(reply.getAvatar());
+            r.setAvatarColor(reply.getAvatarColor());
+            r.setProfilePicture(null);
+        }
+
         return r;
+    }
+
+    private ReplyResponse toReplyResponse(Reply reply) {
+        UserProfileDto liveProfile = null;
+        if (!reply.isAnonymous() && reply.getUserId() != null) {
+            try {
+                liveProfile = userServiceClient.getUserProfile(reply.getUserId());
+            } catch (Exception e) {
+                // Graceful fallback
+            }
+        }
+        return toReplyResponse(reply, liveProfile);
     }
 }
