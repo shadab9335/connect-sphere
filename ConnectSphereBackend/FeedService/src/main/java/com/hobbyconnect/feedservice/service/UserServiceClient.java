@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -110,5 +111,50 @@ public class UserServiceClient {
             // Fallback: return empty list — tabs will still load without the full list
         }
         return Collections.emptyList();
+    }
+
+    // ── GET BATCH USER PROFILES ───────────────────────────────────────────────
+
+    /**
+     * POST {userServiceBaseUrl}/internal/users/batch
+     * Accepts a list of userIds and returns a map of userId -> UserProfileDto.
+     */
+    @SuppressWarnings("unchecked")
+    public Map<String, UserProfileDto> getBatchUserProfiles(List<String> userIds) {
+        if (userIds == null || userIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        try {
+            String url = userServiceBaseUrl + "/internal/users/batch";
+            Map<String, Object> requestBody = Map.of("userIds", userIds);
+
+            Map<String, Object> response = restTemplate.postForObject(url, requestBody, Map.class);
+
+            if (response != null && Boolean.TRUE.equals(response.get("success"))) {
+                Object data = response.get("data");
+                if (data instanceof List<?> list) {
+                    Map<String, UserProfileDto> resultMap = new HashMap<>();
+                    for (Object item : list) {
+                        if (item instanceof Map<?, ?> userMap) {
+                            UserProfileDto dto = new UserProfileDto();
+                            String uId = (String) userMap.get("userId");
+                            dto.setUserId(uId);
+                            dto.setDisplayName((String) userMap.get("displayName"));
+                            dto.setAvatar((String) userMap.get("avatar"));
+                            dto.setColor((String) userMap.get("color"));
+                            dto.setProfilePicture((String) userMap.get("profilePicture"));
+
+                            if (uId != null) {
+                                resultMap.put(uId, dto);
+                            }
+                        }
+                    }
+                    return resultMap;
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Failed to fetch batch profiles: " + e.getMessage());
+        }
+        return Collections.emptyMap();
     }
 }
