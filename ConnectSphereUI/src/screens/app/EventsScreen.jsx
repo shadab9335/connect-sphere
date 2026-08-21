@@ -13,17 +13,17 @@ const EVENT_COLOR =
 
 const TAG_COLORS = {
   Cricket: "#6C63FF",
-  Movies: "#FF6584",
-  Travel: "#43E97B",
-  Running: "#FF6584",
-  Cycling: "#38BDF8",
-  Chess: "#FFB347",
+  Movies: "#6C63FF",
+  Travel: "#6C63FF",
+  Running: "#6C63FF",
+  Cycling: "#6C63FF",
+  Chess: "#6C63FF",
   Gaming: "#6C63FF",
-  Photography: "#43E97B",
-  Music: "#FF6584",
-  Cooking: "#FFB347",
-  Yoga: "#38BDF8",
-  General: "#8892B0",
+  Photography: "#6C63FF",
+  Music: "#6C63FF",
+  Cooking: "#6C63FF",
+  Yoga: "#6C63FF",
+  General: "#6C63FF",
 };
 
 const EMOJIS = [
@@ -101,7 +101,7 @@ const formatTo12Hour = (timeStr) => {
   return `${hours}:${minutesStr} ${ampm}`;
 };
 
-function EventsScreen() {
+function EventsScreen({ myInterests }) {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [leaveConfirmEvent, setLeaveConfirmEvent] = useState(null); // ADDED: leave confirmation
@@ -147,6 +147,13 @@ function EventsScreen() {
   useEffect(() => {
     loadEvents();
   }, [loadEvents]);
+
+  const orderedInterests = React.useMemo(() => {
+    const userSet = new Set(myInterests || []);
+    const preferred = INTERESTS.filter((i) => userSet.has(i.label));
+    const remaining = INTERESTS.filter((i) => !userSet.has(i.label));
+    return [...preferred, ...remaining];
+  }, [myInterests]);
 
   // CHANGED: show confirmation popup instead of leaving immediately
   const handleJoinLeave = async (ev) => {
@@ -343,7 +350,7 @@ function EventsScreen() {
           !error &&
           events.map((ev) => {
             const color = EVENT_COLOR;
-            const tagColor = TAG_COLORS[ev.interest] || "#8892B0";
+            const tagColor = TAG_COLORS[ev.interest] || COLORS.primary;
 
             return (
               <div
@@ -654,23 +661,23 @@ function EventsScreen() {
                         style={{ width: "100%", boxSizing: "border-box", border: `1.5px solid ${COLORS.border}`, borderRadius: 12, padding: "12px 14px", fontSize: 13, fontFamily: "'DM Sans', sans-serif", marginBottom: 14, color: COLORS.text, outline: "none" }} />
                     <div style={{ fontSize: 12, color: COLORS.muted, marginBottom: 8, fontFamily: "'DM Sans', sans-serif", fontWeight: 600 }}>Interest Tag</div>
                     <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 8, marginBottom: 16, scrollbarWidth: "none" }}>
-                        {INTERESTS.map(i => {
-                            const isSelected = selectedInterest === i.label;
-                            const tColor = TAG_COLORS[i.label] || COLORS.primary;
-                            return (
-                                <span key={i.id} onClick={() => setSelectedInterest(isSelected ? "" : i.label)}
-                                    style={{
-                                        padding: "5px 12px", borderRadius: 20,
-                                        background: isSelected ? tColor : `${tColor}18`,
-                                        color: isSelected ? "white" : tColor,
-                                        fontSize: 11, fontWeight: 700, cursor: "pointer",
-                                        fontFamily: "'DM Sans', sans-serif",
-                                        border: `1.5px solid ${isSelected ? tColor : "transparent"}`,
-                                        transition: "all 0.15s", whiteSpace: "nowrap", flexShrink: 0,
-                                    }}
-                                >{i.emoji} #{i.label}</span>
-                            );
-                        })}
+                      {orderedInterests.map((i) => {
+                        const isSelected = selectedInterest === i.label;
+                        const tColor = TAG_COLORS[i.label] || COLORS.primary;
+                        return (
+                          <span key={i.id} onClick={() => setSelectedInterest(isSelected ? "" : i.label)}
+                            style={{
+                              padding: "5px 12px", borderRadius: 20,
+                              background: isSelected ? tColor : `${tColor}18`,
+                              color: isSelected ? "white" : tColor,
+                              fontSize: 11, fontWeight: 700, cursor: "pointer",
+                              fontFamily: "'DM Sans', sans-serif",
+                              border: `1.5px solid ${isSelected ? tColor : "transparent"}`,
+                              transition: "all 0.15s", whiteSpace: "nowrap", flexShrink: 0,
+                            }}
+                          >{i.emoji} #{i.label}</span>
+                        );
+                      })}
                     </div>
                     <button onClick={handleCreate} disabled={creating} style={{
                         width: "100%", background: "linear-gradient(135deg, #c860d9, rgb(124, 85, 193))", color: "white", border: "none",
@@ -1055,7 +1062,7 @@ function EventsScreen() {
                 scrollbarWidth: "none",
               }}
             >
-              {INTERESTS.map((i) => {
+              {orderedInterests.map((i) => {
                 const isSelected = selectedInterest === i.label;
                 const tColor = TAG_COLORS[i.label] || COLORS.primary;
                 return (
