@@ -129,7 +129,7 @@ import {
     connectUser,
     disconnectUser,
     getConnectionsForUser,
-} from "../../services/connectionService";
+} from "../../services/connectionService.js";
 function Pill({ label, active, color, onClick }) {
     return (
         <button
