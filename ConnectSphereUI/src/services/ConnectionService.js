@@ -2,9 +2,7 @@ import axios from "axios";
 import config from "../config";
 const BASE = `${config.USER_API}/api/connections`;
 /**
- * Connect two users
- *
- * POST /api/connections/{requesterUserId}/{recipientUserId}
+ * Connect two users -> POST /api/connections/{requesterUserId}/{recipientUserId}
  */
 export const connectUser = async (
     requesterUserId,
@@ -15,10 +13,7 @@ export const connectUser = async (
     );
 };
 /**
- * Disconnect two users
- *
- * DELETE /api/connections/{firstUserId}/{secondUserId}
- */
+ * Disconnect two users -> DELETE /api/connections/{firstUserId}/{secondUserId} */
 export const disconnectUser = async (
     firstUserId,
     secondUserId
@@ -28,10 +23,7 @@ export const disconnectUser = async (
     );
 };
 /**
- * Get all connections for a user
- *
- * GET /api/connections/{userId}
- */
+ * Get all connections for a user -> GET /api/connections/{userId}*/
 export const getConnectionsForUser = async (
     userId
 ) => {
@@ -39,11 +31,7 @@ export const getConnectionsForUser = async (
         `${BASE}/${userId}`
     );
 };
-/**
- * Get connection count for a user
- *
- * GET /api/connections/{userId}/count
- */
+/** Get connection count for a user ->  GET /api/connections/{userId}/count */
 export const getConnectionCount = async (
     userId
 ) => {
