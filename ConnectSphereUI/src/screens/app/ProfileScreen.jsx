@@ -184,10 +184,10 @@
 //         const reader = new FileReader();
 //         reader.onload = async () => {
 //             const base64Image = reader.result;
-            
+
 //             // 1. Update local UI immediately for responsiveness
 //             setProfilePic(base64Image);
-            
+
 //             if (editMode) {
 //                 // Scenario A: User is in Edit Mode -> Stage it in the form to save with other fields
 //                 setForm(f => ({ ...f, profilePicture: base64Image }));
@@ -195,7 +195,7 @@
 //                 // Scenario B: User is in View Mode -> Auto-save directly to the database right now!
 //                 try {
 //                     console.log("%c[ProfileScreen] 📸 Auto-saving profile picture...", "color: cyan; font-weight: bold");
-                    
+
 //                     // Construct a snapshot of the current profile data plus the new picture
 //                     await updateProfile({
 //                         isAnonymous: profile?.isAnonymous ?? false,
@@ -731,9 +731,10 @@ import { fetchUserPosts, fetchUserBookmarks } from "../../services/feedService";
 import MyPostsScreen from "./MyPostsScreen";
 import MyEventsScreen from "./MyEventsScreen"; // ADDED — Shadab's events feature
 import { fetchMyHostedEvents } from "../../services/eventsService"; // ADDED — Shadab's events feature
-
+import { getConnectionCount } from "../../services/connectionService";
 const PRIMARY_SOLID = "#6C63FF";
 const CARD_BG = "#f7f0f0";
+
 
 // Reusable styles for the edit-mode inputs/dropdowns
 const inputStyle = {
@@ -748,7 +749,6 @@ const inputStyle = {
     outline: "none",
     boxSizing: "border-box",
 };
-
 const fieldLabelStyle = {
     fontSize: 11,
     fontWeight: 700,
@@ -758,14 +758,12 @@ const fieldLabelStyle = {
     textTransform: "uppercase",
     letterSpacing: 0.5,
 };
-
 const fieldValueStyle = {
     fontSize: 14,
     color: COLORS.text,
     fontFamily: "'DM Sans', sans-serif",
     fontWeight: 600,
 };
-
 function Pill({ label, active, color, onClick, disabled }) {
     return (
         <button onClick={onClick} disabled={disabled} style={{
@@ -796,37 +794,31 @@ function Pill({ label, active, color, onClick, disabled }) {
         >{label}</button>
     );
 }
-
 function ProfileScreen({ myInterests, setMyInterests, profilePic, setProfilePic, onLogout }) {
     // ── Top-level state ─────────────────────────────────────────────────
     const [editMode, setEditMode] = useState(false);
     const [saving, setSaving] = useState(false);
     const [saveError, setSaveError] = useState("");
     const [privacy, setPrivacy] = useState({ empId: true, anonMsg: true, location: false });
-
+    const [connectionCount, setConnectionCount] = useState(0);
     // Initialize from localStorage for instant first paint, then refresh from API.
     const [profile, setProfile] = useState(() => {
         try { return JSON.parse(localStorage.getItem('user') || 'null'); }
         catch { return null; }
     });
-
     // My posts — fetched once on mount so the stat card shows the real count
     // and so MyPostsScreen can mount with the data already in hand (no second fetch).
     const [myPosts, setMyPosts] = useState([]);
     const [showMyPosts, setShowMyPosts] = useState(false);
-
     // Saved posts — same idea: fetched on mount so the "Saved" stat tile
     // shows the real count and MyPostsScreen can mount in saved-mode without re-fetching.
     const [savedPosts, setSavedPosts] = useState([]);
     const [showSavedPosts, setShowSavedPosts] = useState(false);
-
     // Hosted events — count shown on the "Events" stat tile; tapping it drills into MyEventsScreen. (ADDED)
     const [myHostedEvents, setMyHostedEvents] = useState([]);
     const [showMyEvents, setShowMyEvents] = useState(false);
-
     // Master list of all available interests — fetched from backend on mount.
     const [availableInterests, setAvailableInterests] = useState([]);
-
     // Form state — ONE object holding ALL editable fields. Populated on Edit click,
     // sent in ONE PUT request on Save click.
     const [form, setForm] = useState({
@@ -838,55 +830,155 @@ function ProfileScreen({ myInterests, setMyInterests, profilePic, setProfilePic,
         profilePicture: "",
         interests: [],
     });
-
     // ── Load profile + posts + interests on mount ───────────────────────
+    // useEffect(() => {
+    //     fetchMyProfile()
+    //         .then(res => {
+    //             const fresh = res.data.data;
+    //             setProfile(fresh);
+    //             // Strip profilePicture (base64) before caching — too large for localStorage.
+    //             const { profilePicture, ...slim } = fresh || {};
+    //             localStorage.setItem('user', JSON.stringify(slim));
+    //         })
+    //         .catch(err => console.error('Failed to load profile', err));
+    //     const stored = JSON.parse(localStorage.getItem('user') || '{}');
+    //     if (stored.id) {
+    //         fetchUserPosts(stored.id)
+    //             .then(r => setMyPosts(r.data.data || []))
+    //             .catch(err => console.error('Failed to load my posts', err));
+    //         fetchUserBookmarks(stored.id)
+    //             .then(r => setSavedPosts(r.data.data || []))
+    //             .catch(err => console.error('Failed to load saved posts', err));
+    //     }
+    //     // Hosted events count for the "Events" stat tile. (ADDED — Shadab's events feature)
+    //     fetchMyHostedEvents()
+    //         .then(json => setMyHostedEvents(json?.data || []))
+    //         .catch(err => console.error('Failed to load my events', err));
+    //     // Fetch master interests list from backend (same source as SignupInterestsScreen).
+    //     // No fallback — if backend is empty/down, the pills section stays empty.
+    //     console.log("%c[ProfileScreen] 🚀 fetching available interests from backend", "color: purple; font-weight: bold");
+    //     fetchInterests()
+    //         .then(res => {
+    //             const list = res.data?.data || [];
+    //             console.log("[ProfileScreen]   • backend interest list length:", list.length);
+    //             if (list.length === 0) {
+    //                 console.warn("%c[ProfileScreen] ⚠ backend returned 0 interests — pills section will be empty", "color: orange");
+    //             } else {
+    //                 console.log("%c[ProfileScreen] ✓ using BACKEND interests", "color: green; font-weight: bold");
+    //             }
+    //             setAvailableInterests(list);
+    //         })
+    //         .catch(err => {
+    //             console.error("%c[ProfileScreen] ✗ failed to fetch interests", "color: red; font-weight: bold", err);
+    //             setAvailableInterests([]);
+    //         });
+    // }, []);
     useEffect(() => {
         fetchMyProfile()
             .then(res => {
                 const fresh = res.data.data;
                 setProfile(fresh);
-                // Strip profilePicture (base64) before caching — too large for localStorage.
-                const { profilePicture, ...slim } = fresh || {};
-                localStorage.setItem('user', JSON.stringify(slim));
+                const { profilePicture, ...slim } =
+                    fresh || {};
+                localStorage.setItem(
+                    'user',
+                    JSON.stringify(slim)
+                );
             })
-            .catch(err => console.error('Failed to load profile', err));
-
-        const stored = JSON.parse(localStorage.getItem('user') || '{}');
+            .catch(err =>
+                console.error(
+                    'Failed to load profile',
+                    err
+                )
+            );
+        const stored =
+            JSON.parse(
+                localStorage.getItem('user') || '{}'
+            );
         if (stored.id) {
             fetchUserPosts(stored.id)
-                .then(r => setMyPosts(r.data.data || []))
-                .catch(err => console.error('Failed to load my posts', err));
-
+                .then(r =>
+                    setMyPosts(
+                        r.data.data || []
+                    )
+                )
+                .catch(err =>
+                    console.error(
+                        'Failed to load my posts',
+                        err
+                    )
+                );
             fetchUserBookmarks(stored.id)
-                .then(r => setSavedPosts(r.data.data || []))
-                .catch(err => console.error('Failed to load saved posts', err));
+                .then(r =>
+                    setSavedPosts(
+                        r.data.data || []
+                    )
+                )
+                .catch(err =>
+                    console.error(
+                        'Failed to load saved posts',
+                        err
+                    )
+                );
+            getConnectionCount(stored.id)
+                .then(response => {
+                    setConnectionCount(
+                        response?.data?.data?.connectionCount || 0
+                    );
+                })
+                .catch(error => {
+                    console.error(
+                        'Failed to load connection count',
+                        error
+                    );
+                });
         }
-
-        // Hosted events count for the "Events" stat tile. (ADDED — Shadab's events feature)
         fetchMyHostedEvents()
-            .then(json => setMyHostedEvents(json?.data || []))
-            .catch(err => console.error('Failed to load my events', err));
-
-        // Fetch master interests list from backend (same source as SignupInterestsScreen).
-        // No fallback — if backend is empty/down, the pills section stays empty.
-        console.log("%c[ProfileScreen] 🚀 fetching available interests from backend", "color: purple; font-weight: bold");
+            .then(json =>
+                setMyHostedEvents(
+                    json?.data || []
+                )
+            )
+            .catch(err =>
+                console.error(
+                    'Failed to load my events',
+                    err
+                )
+            );
+        console.log(
+            "%c[ProfileScreen] 🚀 fetching available interests from backend",
+            "color: purple; font-weight: bold"
+        );
         fetchInterests()
             .then(res => {
-                const list = res.data?.data || [];
-                console.log("[ProfileScreen]   • backend interest list length:", list.length);
+                const list =
+                    res.data?.data || [];
+                console.log(
+                    "[ProfileScreen]   • backend interest list length:",
+                    list.length
+                );
                 if (list.length === 0) {
-                    console.warn("%c[ProfileScreen] ⚠ backend returned 0 interests — pills section will be empty", "color: orange");
+                    console.warn(
+                        "%c[ProfileScreen] ⚠ backend returned 0 interests — pills section will be empty",
+                        "color: orange"
+                    );
                 } else {
-                    console.log("%c[ProfileScreen] ✓ using BACKEND interests", "color: green; font-weight: bold");
+                    console.log(
+                        "%c[ProfileScreen] ✓ using BACKEND interests",
+                        "color: green; font-weight: bold"
+                    );
                 }
                 setAvailableInterests(list);
             })
             .catch(err => {
-                console.error("%c[ProfileScreen] ✗ failed to fetch interests", "color: red; font-weight: bold", err);
+                console.error(
+                    "%c[ProfileScreen] ✗ failed to fetch interests",
+                    "color: red; font-weight: bold",
+                    err
+                );
                 setAvailableInterests([]);
             });
     }, []);
-
     // // ── Avatar picker ─────────────────────────────────────────────────────
     // const handlePickAvatar = (e) => {
     //     const file = e.target.files && e.target.files[0];
@@ -900,7 +992,6 @@ function ProfileScreen({ myInterests, setMyInterests, profilePic, setProfilePic,
     //     reader.readAsDataURL(file);
     //     e.target.value = "";
     // };
-
     // ── Avatar picker with auto-save ──────────────────────────────────────
     const handlePickAvatar = (e) => {
         const file = e.target.files && e.target.files[0];
@@ -908,10 +999,8 @@ function ProfileScreen({ myInterests, setMyInterests, profilePic, setProfilePic,
         const reader = new FileReader();
         reader.onload = async () => {
             const base64Image = reader.result;
-            
             // 1. Update local UI immediately for responsiveness
             setProfilePic(base64Image);
-            
             if (editMode) {
                 // Scenario A: User is in Edit Mode -> Stage it in the form to save with other fields
                 setForm(f => ({ ...f, profilePicture: base64Image }));
@@ -919,7 +1008,6 @@ function ProfileScreen({ myInterests, setMyInterests, profilePic, setProfilePic,
                 // Scenario B: User is in View Mode -> Auto-save directly to the database right now!
                 try {
                     console.log("%c[ProfileScreen] 📸 Auto-saving profile picture...", "color: cyan; font-weight: bold");
-                    
                     // Construct a snapshot of the current profile data plus the new picture
                     await updateProfile({
                         isAnonymous: profile?.isAnonymous ?? false,
@@ -930,7 +1018,6 @@ function ProfileScreen({ myInterests, setMyInterests, profilePic, setProfilePic,
                         interests: profile?.interests?.map(String) || [],
                         profilePicture: base64Image // Send the base64 string
                     });
-
                     // Refresh profile from backend to sync state
                     const fresh = await fetchMyProfile();
                     setProfile(fresh.data.data);
@@ -944,44 +1031,38 @@ function ProfileScreen({ myInterests, setMyInterests, profilePic, setProfilePic,
         reader.readAsDataURL(file);
         e.target.value = "";
     };
-
     // ── Edit / Cancel / Save handlers ─────────────────────────────────────
     // Enter edit mode: copy current profile values into form state.
     const handleEdit = () => {
         setSaveError("");
         setForm({
-            fullName:       profile?.fullName || "",
-            department:     profile?.department || "",
-            building:       profile?.building || "",
-            floor:          profile?.floor || "",
-            isAnonymous:    profile?.isAnonymous ?? false,
+            fullName: profile?.fullName || "",
+            department: profile?.department || "",
+            building: profile?.building || "",
+            floor: profile?.floor || "",
+            isAnonymous: profile?.isAnonymous ?? false,
             profilePicture: profile?.profilePicture || profilePic || "",
-            interests:      profile?.interests?.map(String) || [],
+            interests: profile?.interests?.map(String) || [],
         });
         setEditMode(true);
     };
-
     // Exit edit mode without saving any change.
     const handleCancel = () => {
         setSaveError("");
         setEditMode(false);
     };
-
     // Save all fields at once via ONE PUT call.
     const handleSave = async () => {
         setSaveError("");
-
         // Frontend validation: name must not be empty.
         if (!form.fullName.trim()) {
             setSaveError("Full Name cannot be empty");
             return;
         }
-
         setSaving(true);
         try {
             console.log("%c[ProfileScreen] 💾 saving profile", "color: orange; font-weight: bold", form);
             await updateProfile(form);
-
             // Re-fetch profile so UI shows whatever the backend now has (including derived fields like avatar initials).
             const fresh = await fetchMyProfile();
             const freshData = fresh.data.data;
@@ -991,7 +1072,6 @@ function ProfileScreen({ myInterests, setMyInterests, profilePic, setProfilePic,
             const { profilePicture, ...slim } = freshData || {};
             localStorage.setItem('user', JSON.stringify(slim));
             console.log("%c[ProfileScreen] ✅ save complete + profile reloaded", "color: green; font-weight: bold");
-
             setEditMode(false);
         } catch (err) {
             const msg = err.response?.data?.message || "Save failed. Please try again.";
@@ -1001,7 +1081,6 @@ function ProfileScreen({ myInterests, setMyInterests, profilePic, setProfilePic,
             setSaving(false);
         }
     };
-
     // Toggle a single interest in the form (only effective in edit mode).
     const handleToggleInterest = (interest) => {
         if (!editMode) return;
@@ -1014,13 +1093,11 @@ function ProfileScreen({ myInterests, setMyInterests, profilePic, setProfilePic,
             return { ...f, interests: next };
         });
     };
-
     const privacyItems = [
         { key: "empId", label: "Show my Emp ID publicly", sub: "Others can see E0001" },
         { key: "anonMsg", label: "Allow anonymous messaging", sub: "Receive msgs from anon users" },
         { key: "location", label: "Location visibility", sub: "Show my floor & tower" },
     ];
-
     // Which interest names are currently "selected" (shown as pink active pills).
     // View mode → from saved profile (backend truth).
     // Edit mode → from form (in-progress edits the user hasn't saved yet).
@@ -1028,20 +1105,10 @@ function ProfileScreen({ myInterests, setMyInterests, profilePic, setProfilePic,
         ? form.interests
         : (profile?.interests?.map(String)
             || (myInterests || []).map(x => (typeof x === "string" ? x : x?.id || x?.label)));
-
     // Drilldown: tapping the "Events" stat replaces this screen with MyEventsScreen. (ADDED)
     if (showMyEvents) {
         return <MyEventsScreen onBack={() => setShowMyEvents(false)} />;
     }
-
-    // Drilldown: tapping the "Posts" stat replaces this screen with MyPostsScreen.
-    // NOTE: key="own-posts" forces React to fully unmount/remount when switching to/from
-    // saved mode below. Without distinct keys, React reuses the same component instance
-    // across mode="own" <-> mode="saved" (same type, same tree position), which means
-    // useState's initializer and the mount-only useEffect never re-run — so the posts
-    // list silently keeps showing whichever data was loaded at the very first mount,
-    // even after props change. This was the actual cause of "Saved Posts shows my own
-    // posts" — not a backend bug.
     if (showMyPosts) {
         return (
             <MyPostsScreen
@@ -1057,7 +1124,6 @@ function ProfileScreen({ myInterests, setMyInterests, profilePic, setProfilePic,
             />
         );
     }
-
     // Drilldown: tapping "Saved Posts" replaces this screen with MyPostsScreen in saved mode.
     // key="saved-posts" — see note above; this guarantees a clean remount every time.
     if (showSavedPosts) {
@@ -1072,10 +1138,8 @@ function ProfileScreen({ myInterests, setMyInterests, profilePic, setProfilePic,
             />
         );
     }
-
     return (
         <div style={{ flex: 1, overflowY: "auto", scrollbarWidth: "none", backgroundImage: `url(${BackgroundImage})`, backgroundSize: "cover", backgroundPosition: "center", borderRadius: "25px 25px 0 0" }}>
-
             {/* ── Hero Banner: Avatar + Stats (swapped per the new layout) ── */}
             <div style={{
                 background: "transparent",
@@ -1114,7 +1178,6 @@ function ProfileScreen({ myInterests, setMyInterests, profilePic, setProfilePic,
                         </div>
                         <input id="avatarInput" type="file" accept="image/*" style={{ display: "none" }} onChange={handlePickAvatar} />
                     </div>
-
                     {/* Stats card — now sits beside the avatar in the hero banner */}
                     <div style={{
                         flex: 1,
@@ -1128,7 +1191,8 @@ function ProfileScreen({ myInterests, setMyInterests, profilePic, setProfilePic,
                             // "Saved" moved into the Posts tab (see MyPostsScreen "🔖 Saved Posts" link).
                             // Placeholder until Discover-based connections are wired in — always 0 for now.
                             // TODO: wire to Discover screen — replace count/onClick once "Connect" actions persist.
-                            { count: "0", label: "Connections", onClick: undefined },
+                            // { count: "0", label: "Connections", onClick: undefined },
+                            { count: String(connectionCount), label: "Connections", onClick: undefined },
                             { count: String(myHostedEvents.length), label: "Events", onClick: () => setShowMyEvents(true) },
                             {
                                 count: String(myPosts.length), label: "Posts", onClick: () => {
@@ -1169,9 +1233,7 @@ function ProfileScreen({ myInterests, setMyInterests, profilePic, setProfilePic,
                     </div>
                 </div>
             </div>
-
             <div style={{ padding: "0 16px 24px", marginTop: -24 }}>
-
                 {/* ── Profile Details Card (View OR Edit) ── */}
                 {/* In edit mode, this card visually "links" with My Interests below — ONE Save button covers BOTH. */}
                 <div style={{
@@ -1226,7 +1288,6 @@ function ProfileScreen({ myInterests, setMyInterests, profilePic, setProfilePic,
                             }}>✏️ Edit</button>
                         )}
                     </div>
-
                     {/* Inline error banner (only in edit mode if save failed) */}
                     {saveError && (
                         <div style={{
@@ -1235,7 +1296,6 @@ function ProfileScreen({ myInterests, setMyInterests, profilePic, setProfilePic,
                             fontSize: 12, fontFamily: "'DM Sans', sans-serif", fontWeight: 600,
                         }}>⚠ {saveError}</div>
                     )}
-
                     {/* Full Name */}
                     <div style={{ marginBottom: 14 }}>
                         <div style={fieldLabelStyle}>Full Name</div>
@@ -1251,13 +1311,11 @@ function ProfileScreen({ myInterests, setMyInterests, profilePic, setProfilePic,
                             <div style={fieldValueStyle}>{profile?.fullName || "—"}</div>
                         )}
                     </div>
-
                     {/* Employee ID — always locked, no edit input */}
                     <div style={{ marginBottom: 14 }}>
                         <div style={fieldLabelStyle}>Employee ID 🔒</div>
                         <div style={{ ...fieldValueStyle, color: COLORS.muted }}>{profile?.employeeId || "—"}</div>
                     </div>
-
                     {/* Department */}
                     <div style={{ marginBottom: 14 }}>
                         <div style={fieldLabelStyle}>Department</div>
@@ -1274,7 +1332,6 @@ function ProfileScreen({ myInterests, setMyInterests, profilePic, setProfilePic,
                             <div style={fieldValueStyle}>🏢 {profile?.department || "—"}</div>
                         )}
                     </div>
-
                     {/* Building + Floor (side by side) */}
                     <div style={{ display: "flex", gap: 12 }}>
                         <div style={{ flex: 1 }}>
@@ -1309,7 +1366,6 @@ function ProfileScreen({ myInterests, setMyInterests, profilePic, setProfilePic,
                         </div>
                     </div>
                 </div>
-
                 {/* ── My Interests (pills) ── */}
                 {/* In edit mode, this card visually "links" with Profile Details — both share the same Save button at the top. */}
                 <div style={{
@@ -1355,7 +1411,6 @@ function ProfileScreen({ myInterests, setMyInterests, profilePic, setProfilePic,
                         })}
                     </div>
                 </div>
-
                 {/* ── Recent Activity (unchanged) ── */}
                 <div style={{
                     background: CARD_BG, borderRadius: 20, padding: 16, marginBottom: 14,
@@ -1389,7 +1444,6 @@ function ProfileScreen({ myInterests, setMyInterests, profilePic, setProfilePic,
                         </div>
                     ))}
                 </div>
-
                 {/* ── Privacy Settings (unchanged) ── */}
                 <div style={{
                     background: CARD_BG, borderRadius: 20, padding: 16, marginBottom: 14,
@@ -1430,7 +1484,6 @@ function ProfileScreen({ myInterests, setMyInterests, profilePic, setProfilePic,
                         </div>
                     ))}
                 </div>
-
                 {/* ── Logout Button ── */}
                 <button
                     onClick={onLogout}
@@ -1451,10 +1504,8 @@ function ProfileScreen({ myInterests, setMyInterests, profilePic, setProfilePic,
                 >
                     🚪 Logout
                 </button>
-
             </div>
         </div>
     );
 }
-
 export default ProfileScreen;
