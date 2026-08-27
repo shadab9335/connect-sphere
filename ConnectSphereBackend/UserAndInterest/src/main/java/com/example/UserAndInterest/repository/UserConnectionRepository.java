@@ -1,3 +1,4 @@
+/*
 package com.example.UserAndInterest.repository;
 
 import com.example.UserAndInterest.model.UserConnection;
@@ -29,3 +30,22 @@ public interface UserConnectionRepository
     );
 }
 
+*/
+
+
+package com.example.UserAndInterest.repository;
+
+import com.example.UserAndInterest.model.UserConnection;
+import org.springframework.data.mongodb.repository.MongoRepository;
+import org.springframework.stereotype.Repository;
+
+import java.util.Optional;
+
+@Repository
+public interface UserConnectionRepository
+        extends MongoRepository<UserConnection, String> {
+
+    Optional<UserConnection> findByUserId(String userId);
+    boolean existsByUserId(String userId);
+    void deleteByUserId(String userId);
+}
