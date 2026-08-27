@@ -430,7 +430,7 @@ import { COLORS } from "./constants";
 import FeedScreen from "./screens/app/FeedScreen";
 import DiscoverScreen from "./screens/app/DiscoverScreen";
 import EventsScreen from "./screens/app/EventsScreen";
-import ChatScreen from "./screens/app/ChatScreen";
+import ChatScreen from "./screens/app/chat/ChatScreen";
 import ProfileScreen from "./screens/app/ProfileScreen";
 
 import WelcomeAuthScreen from "./screens/auth/WelcomeAuthScreen 1";
