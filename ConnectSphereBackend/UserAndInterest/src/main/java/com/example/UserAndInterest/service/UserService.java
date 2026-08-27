@@ -212,25 +212,34 @@ public class UserService {
         return ("" + parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
     }
 
-    // ── BATCH GET PROFILES FOR FEEDSERVICE / EVENTSSERVICE ───────────────────
-    public ApiResponse getBatchProfiles(List<String> userIds) {
-        if (userIds == null || userIds.isEmpty()) {
-            return ApiResponse.success("Batch profiles fetched", Collections.emptyList());
-        }
+    // updates:
+    public ApiResponse getAllUsers() {
 
-        // Fetch users by MongoDB ObjectIds (_id)
-        List<User> users = userRepository.findAllById(userIds);
+        List<User> users = userRepository.findAll();
 
-        List<Map<String, Object>> profileList = users.stream().map(user -> {
-            Map<String, Object> profile = new LinkedHashMap<>();
-            profile.put("userId", user.getId());
-            profile.put("displayName", user.getFullName());
-            profile.put("avatar", user.getAvatar());
-            profile.put("color", user.getAvatarColor());
-            profile.put("profilePicture", user.getProfilePicture()); // Base64 string
-            return profile;
-        }).collect(Collectors.toList());
+        List<Map<String, Object>> response = users.stream()
+                .map(user -> {
+                    Map<String, Object> userData = new LinkedHashMap<>();
 
-        return ApiResponse.success("Batch profiles fetched", profileList);
+                    userData.put("id", user.getId());
+                    userData.put("fullName", user.getFullName());
+                    userData.put("employeeId", user.getEmployeeId());
+                    userData.put("avatar", user.getAvatar());
+                    userData.put("avatarColor", user.getAvatarColor());
+                    userData.put("profilePicture", user.getProfilePicture());
+                    userData.put("department", user.getDepartment());
+                    userData.put("location", user.getLocation());
+                    userData.put("building", user.getBuilding());
+                    userData.put("floor", user.getFloor());
+                    userData.put("interests", user.getInterests());
+
+                    return userData;
+                })
+                .toList();
+
+        return ApiResponse.success(
+                "Users fetched successfully",
+                response
+        );
     }
 }

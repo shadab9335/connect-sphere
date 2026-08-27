@@ -131,9 +131,11 @@ public class AuthController {
                 .body(Map.of("error", "User not found: " + userId));
     }
 
-    @PostMapping("/internal/users/batch")
-    public ResponseEntity<ApiResponse> getBatchProfiles(@RequestBody BatchProfileRequest request) {
-        ApiResponse response = userService.getBatchProfiles(request.getUserIds());
+    // updates to fetch users for connection suggestions and connections list:
+    @GetMapping("/api/users")
+    public ResponseEntity<ApiResponse> getAllUsers() {
+        ApiResponse response = userService.getAllUsers();
         return ResponseEntity.ok(response);
     }
 }
+
