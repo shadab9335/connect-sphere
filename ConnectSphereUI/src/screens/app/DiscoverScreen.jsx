@@ -30,9 +30,9 @@ function Pill({ label, active, color, onClick }) {
         </button>
     );
 }
-
-function DiscoverScreen({ myInterests, setMyInterests }) {
+function DiscoverScreen({ myInterests, setMyInterests, setTab, setChatTarget }) {
     const [filter, setFilter] = useState("All");
+    const [searchTerm, setSearchTerm] = useState("");
     const [connectedUserIds, setConnectedUserIds] = useState(new Set());
     const [connectionLoading, setConnectionLoading] = useState(false);
     const [users, setUsers] = useState([]);
@@ -91,11 +91,9 @@ function DiscoverScreen({ myInterests, setMyInterests }) {
     };
     const safeMyInterests = Array.isArray(myInterests) ? myInterests : [];
     const myInterestSet = new Set(safeMyInterests);
-
-    const allLabels = INTERESTS.map(item => item.label);
-    const myLabels = safeMyInterests.filter(name => allLabels.includes(name));
-    const otherLabels = allLabels.filter(label => !myInterestSet.has(label));
-
+    const allLabels = INTERESTS.map((item) => item.label);
+    const myLabels = safeMyInterests.filter((name) => allLabels.includes(name));
+    const otherLabels = allLabels.filter((label) => !myInterestSet.has(label));
     const filters = ["All", ...myLabels, ...otherLabels];
     // const filtered =
     //     filter === "All"
