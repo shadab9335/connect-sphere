@@ -8,7 +8,6 @@ import {
     disconnectUser,
     getConnectionsForUser,
 } from "../../services/connectionService.js";
-import { createDmConversation } from "../../services/chatService.js";
 function Pill({ label, active, color, onClick }) {
     return (
         <button
@@ -30,7 +29,7 @@ function Pill({ label, active, color, onClick }) {
         </button>
     );
 }
-function DiscoverScreen({ myInterests, setMyInterests, setTab, setChatTarget }) {
+function DiscoverScreen({ myInterests, setMyInterests }) {
     const [filter, setFilter] = useState("All");
     const [connectedUserIds, setConnectedUserIds] = useState(new Set());
     const [connectionLoading, setConnectionLoading] = useState(false);
@@ -388,16 +387,6 @@ function DiscoverScreen({ myInterests, setMyInterests, setTab, setChatTarget }) 
                                             : "Connect"}
                                 </button>
                                 <button
-                                    // by pritam.
-                                    onClick={async () => {
-                                        try {
-                                            const res = await createDmConversation(user.id);
-                                            setChatTarget(res.data);
-                                            setTab("chat");
-                                        } catch (error) {
-                                            console.error("Couldn't open chat", error);
-                                        }
-                                    }}
                                     style={{
                                         flex: 1,
                                         background: "#f9e0e0",

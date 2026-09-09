@@ -354,8 +354,8 @@ const EVENT_GRADIENT = "linear-gradient(135deg, rgb(191 82 127), rgb(28 17 193 /
 
 const TABS = [
     { id: "hosted", label: "🏠 Hosted by Me" },
-    { id: "joined", label: "✋ Joined" },
-    { id: "past", label: "🕐 Past Events" },
+    { id: "joined", label: "✋ Joined"        },
+    { id: "past",   label: "🕐 Past Events"   },
 ];
 
 function AvatarCircle({ attendee, size = 44 }) {
@@ -382,8 +382,8 @@ function AvatarCircle({ attendee, size = 44 }) {
 function AttendeesDrawer({ event, onClose }) {
     const [attendees, setAttendees] = useState([]);
     const [interests, setInterests] = useState({});
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
+    const [loading, setLoading]     = useState(true);
+    const [error, setError]         = useState(null);
 
     useEffect(() => {
         if (!event) return;
@@ -420,7 +420,7 @@ function AttendeesDrawer({ event, onClose }) {
 
     return (
         <>
-            <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 400, borderRadius: "inherit " }} />
+            <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 400 , borderRadius: "inherit "}} />
             <div style={{
                 position: "absolute", bottom: 0, left: 0, right: 0,
                 background: "white", borderRadius: "20px 20px 0 0",
@@ -526,12 +526,12 @@ function EventCard({ ev, isHosted, isJoined, onRefresh, onTriggerEdit, onTrigger
 
     return (
         <>
-            <div
+            <div 
                 onClick={handleCardInteraction}
                 style={{
                     background: "white", borderRadius: 16, marginBottom: 12,
                     border: ev.needsNotification ? "2px solid #FF6584" : `1.5px solid ${COLORS.border}`,
-                    boxShadow: ev.needsNotification ? "0 4px 14px rgba(255, 101, 132, 0.25)" : "0 2px 10px rgba(108,99,255,0.07)",
+                    boxShadow: ev.needsNotification ? "0 4px 14px rgba(255, 101, 132, 0.25)" : "0 2px 10px rgba(108,99,255,0.07)", 
                     overflow: "hidden", position: "relative"
                 }}
             >
@@ -551,11 +551,11 @@ function EventCard({ ev, isHosted, isJoined, onRefresh, onTriggerEdit, onTrigger
                         <div>
                             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                                 <div style={{ fontWeight: 800, fontSize: 14, color: "white", fontFamily: "'DM Sans', sans-serif" }}>{ev.title}</div>
-
+                                
                                 {isHosted && (
                                     <div style={{ position: "relative" }}>
-                                        <button
-                                            onClick={(e) => { e.stopPropagation(); setMenuOpen(p => !p); }}
+                                        <button 
+                                            onClick={(e) => { e.stopPropagation(); setMenuOpen(p => !p); }} 
                                             style={{ background: "none", border: "none", color: "white", fontSize: 16, cursor: "pointer", padding: "0 4px", fontWeight: "bold" }}
                                         >
                                             ⋮
@@ -615,15 +615,15 @@ function EventCard({ ev, isHosted, isJoined, onRefresh, onTriggerEdit, onTrigger
 
 function MyEventsScreen({ onBack }) {
     const [activeTab, setActiveTab] = useState("hosted");
-    const [data, setData] = useState({ hosted: [], joined: [], past: [] });
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
+    const [data, setData]           = useState({ hosted: [], joined: [], past: [] });
+    const [loading, setLoading]     = useState(true);
+    const [error, setError]         = useState(null);
 
     // Edit Modal Workflow States
     const [editEvent, setEditEvent] = useState(null);
-    const [editDate, setEditDate] = useState("");
-    const [editTime, setEditTime] = useState("");
-    const [updating, setUpdating] = useState(false);
+    const [editDate, setEditDate]   = useState("");
+    const [editTime, setEditTime]   = useState("");
+    const [updating, setUpdating]   = useState(false);
 
     // Delete Popover Workflow States
     const [deleteConfirmEvent, setDeleteConfirmEvent] = useState(null);
@@ -633,10 +633,10 @@ function MyEventsScreen({ onBack }) {
         setError(null);
         Promise.all([fetchMyHostedEvents(), fetchMyJoinedEvents(), fetchMyPastEvents()])
             .then(([hosted, joined, past]) => {
-                setData({
-                    hosted: hosted?.data || [],
-                    joined: joined?.data || [],
-                    past: past?.data || []
+                setData({ 
+                    hosted: hosted?.data || [], 
+                    joined: joined?.data || [], 
+                    past: past?.data || [] 
                 });
             })
             .catch(e => setError(e.message))
@@ -667,26 +667,26 @@ function MyEventsScreen({ onBack }) {
     // };
 
 
-    const handleSaveEdit = async () => {
-        setUpdating(true);
-        try {
-            // 1. Await the response from your service function
-            const res = await updateEventDateTime(editEvent.id, editDate, editTime);
-
-            // 2. Check if the backend response wrapper indicates success
-            if (res && (res.success || res.status === "OK")) {
-                setEditEvent(null);
-                loadScreenData(); // Refresh list contents from the database
-            } else {
-                alert(res?.message || "Failed to update event details.");
-            }
-        } catch (err) {
-            console.error("Error during update event payload dispatch:", err);
-            alert(err.message || "An unexpected network error occurred.");
-        } finally {
-            setUpdating(false);
+           const handleSaveEdit = async () => {
+    setUpdating(true);
+    try {
+        // 1. Await the response from your service function
+        const res = await updateEventDateTime(editEvent.id, editDate, editTime);
+        
+        // 2. Check if the backend response wrapper indicates success
+        if (res && (res.success || res.status === "OK")) {
+            setEditEvent(null);
+            loadScreenData(); // Refresh list contents from the database
+        } else {
+            alert(res?.message || "Failed to update event details.");
         }
-    };
+    } catch (err) {
+        console.error("Error during update event payload dispatch:", err);
+        alert(err.message || "An unexpected network error occurred.");
+    } finally {
+        setUpdating(false);
+    }
+};
     const handleConfirmDelete = async () => {
         const targetId = deleteConfirmEvent.id;
         setDeleteConfirmEvent(null);
@@ -701,7 +701,7 @@ function MyEventsScreen({ onBack }) {
     const events = data[activeTab];
 
     return (
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", background: "#f7f0f0", position: "relative" }}>
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", background: "#F8F7FF", position: "relative" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "16px 16px 12px", background: "white", borderBottom: `1.5px solid ${COLORS.border}`, flexShrink: 0 }}>
                 <button onClick={onBack} style={{ background: "none", border: "none", cursor: "pointer", padding: 4, display: "flex", alignItems: "center" }}>
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4A3AFF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -713,7 +713,7 @@ function MyEventsScreen({ onBack }) {
 
             <div style={{ display: "flex", background: "white", borderBottom: `1.5px solid ${COLORS.border}`, flexShrink: 0, overflowX: "auto", scrollbarWidth: "none" }}>
                 {TABS.map(tab => {
-                    const count = data[tab.id].length;
+                    const count  = data[tab.id].length;
                     const active = activeTab === tab.id;
                     return (
                         <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{
@@ -749,7 +749,7 @@ function MyEventsScreen({ onBack }) {
                         <div style={{ fontWeight: 700, fontSize: 15, color: COLORS.text, fontFamily: "'DM Sans', sans-serif", marginBottom: 6 }}>
                             {activeTab === "hosted" ? "You haven't hosted any events yet"
                                 : activeTab === "joined" ? "You haven't joined any events yet"
-                                    : "No past events found"}
+                                : "No past events found"}
                         </div>
                         <div style={{ fontSize: 13, color: COLORS.muted, fontFamily: "'DM Sans', sans-serif" }}>
                             {activeTab === "past"
@@ -759,10 +759,10 @@ function MyEventsScreen({ onBack }) {
                     </div>
                 )}
                 {!loading && !error && events.map(ev => (
-                    <EventCard
-                        key={ev.id}
-                        ev={ev}
-                        isHosted={activeTab === "hosted"}
+                    <EventCard 
+                        key={ev.id} 
+                        ev={ev} 
+                        isHosted={activeTab === "hosted"} 
                         isJoined={activeTab === "joined"}
                         onRefresh={loadScreenData}
                         onTriggerEdit={triggerEditModal}
@@ -826,14 +826,14 @@ function MyEventsScreen({ onBack }) {
                                 display: "flex", alignItems: "center", justifyContent: "center",
                             }} disabled>{editEvent.emoji}</button>
                         </div>
-
+                        
                         {/* Disabled fields to prevent unauthorized editing */}
                         <input value={editEvent.title} disabled
                             style={{ width: "100%", boxSizing: "border-box", border: `1.5px solid ${COLORS.border}`, borderRadius: 12, padding: "12px 14px", fontSize: 13, fontFamily: "'DM Sans', sans-serif", marginBottom: 10, color: COLORS.muted, background: "#F4F4F8", outline: "none" }} />
-
+                        
                         <input value={`📍 ${editEvent.location}`} disabled
                             style={{ width: "100%", boxSizing: "border-box", border: `1.5px solid ${COLORS.border}`, borderRadius: 12, padding: "12px 14px", fontSize: 13, fontFamily: "'DM Sans', sans-serif", marginBottom: 10, color: COLORS.muted, background: "#F4F4F8", outline: "none" }} />
-
+                        
                         {/* Interactive Timing Pickers */}
                         <div style={{ display: "flex", gap: 10, marginBottom: 14, width: "100%" }}>
                             <MobileDatePicker
