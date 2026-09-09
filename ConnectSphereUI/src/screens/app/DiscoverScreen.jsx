@@ -8,6 +8,7 @@ import {
     disconnectUser,
     getConnectionsForUser,
 } from "../../services/connectionService.js";
+import { createDmConversation } from "../../services/chatService.js";
 function Pill({ label, active, color, onClick }) {
     return (
         <button
@@ -29,8 +30,9 @@ function Pill({ label, active, color, onClick }) {
         </button>
     );
 }
-function DiscoverScreen({ myInterests, setMyInterests }) {
+function DiscoverScreen({ myInterests, setMyInterests, setTab, setChatTarget }) {
     const [filter, setFilter] = useState("All");
+    const [searchTerm, setSearchTerm] = useState("");
     const [connectedUserIds, setConnectedUserIds] = useState(new Set());
     const [connectionLoading, setConnectionLoading] = useState(false);
     const [users, setUsers] = useState([]);
@@ -111,7 +113,7 @@ function DiscoverScreen({ myInterests, setMyInterests }) {
     //             user.interests?.some((interest) => interest.label === filter),
     //         );
 
-    const filtered =
+    const filteredByInterest =
         filter === "All"
             ? users
             : users.filter((user) =>
@@ -119,6 +121,19 @@ function DiscoverScreen({ myInterests, setMyInterests }) {
                     interest.interestName === filter
                 )
             );
+
+    // Search button/input enabled: matches name, employee ID, or interest.
+    const term = searchTerm.trim().toLowerCase();
+    const filtered = !term
+        ? filteredByInterest
+        : filteredByInterest.filter((user) => {
+            const nameMatch = user.fullName?.toLowerCase().includes(term);
+            const empIdMatch = user.employeeId?.toLowerCase().includes(term);
+            const interestMatch = user.interests?.some((interest) =>
+                interest.interestName?.toLowerCase().includes(term)
+            );
+            return nameMatch || empIdMatch || interestMatch;
+        });
 
     return (
         <div
@@ -165,6 +180,8 @@ function DiscoverScreen({ myInterests, setMyInterests }) {
             >
                 <span style={{ fontSize: 16 }}>🔍</span>
                 <input
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
                     placeholder="Search by name, emp ID, or interest..."
                     style={{
                         border: "none",
@@ -176,6 +193,13 @@ function DiscoverScreen({ myInterests, setMyInterests }) {
                         background: "none",
                     }}
                 />
+                {searchTerm && (
+                    <button
+                        onClick={() => setSearchTerm("")}
+                        style={{ border: "none", background: "none", color: "#8892B0", fontSize: 14, cursor: "pointer", padding: 0 }}
+                        aria-label="Clear search"
+                    >✕</button>
+                )}
             </div>
             {/* Interest filters */}
             <div
@@ -387,6 +411,16 @@ function DiscoverScreen({ myInterests, setMyInterests }) {
                                             : "Connect"}
                                 </button>
                                 <button
+                                    // by pritam.
+                                    onClick={async () => {
+                                        try {
+                                            const res = await createDmConversation(user.id);
+                                            setChatTarget(res.data);
+                                            setTab("chat");
+                                        } catch (error) {
+                                            console.error("Couldn't open chat", error);
+                                        }
+                                    }}
                                     style={{
                                         flex: 1,
                                         background: "#f9e0e0",
