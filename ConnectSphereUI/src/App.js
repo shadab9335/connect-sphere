@@ -529,6 +529,7 @@ export default function App() {
   const [myInterests, setMyInterests] = useState(["Cricket", "Gaming", "Movies"]);
   const [showCompose, setShowCompose] = useState(false);
   const [profilePic, setProfilePic] = useState(null);
+  const [chatTarget, setChatTarget] = useState(null); // added new.
 
   // ── Notification Center States ───────────────────────────────────────────
   const [notifications, setNotifications] = useState([]);
@@ -720,9 +721,11 @@ const handleClearAllNotifs = async () => {
   const renderTab = () => {
     switch (tab) {
     case "feed": return <FeedScreen myInterests={myInterests} profilePic={profilePic} />;
-    case "discover": return <DiscoverScreen myInterests={myInterests} setMyInterests={setMyInterests} />;
+    // case "discover": return <DiscoverScreen myInterests={myInterests} setMyInterests={setMyInterests} />;
+    case "discover": return <DiscoverScreen myInterests={myInterests} setMyInterests={setMyInterests} setTab={setTab} setChatTarget={setChatTarget} />;
     case "events": return <EventsScreen myInterests={myInterests} />;
-    case "chat": return <ChatScreen profilePic={profilePic} />;
+    // case "chat": return <ChatScreen profilePic={profilePic} />;
+    case "chat": return <ChatScreen profilePic={profilePic} chatTarget={chatTarget} onChatTargetHandled={() => setChatTarget(null)} />;
     case "profile": return <ProfileScreen myInterests={myInterests} setMyInterests={setMyInterests} profilePic={profilePic} setProfilePic={setProfilePic} onLogout={() => {
         localStorage.removeItem("token");
         localStorage.removeItem("user");

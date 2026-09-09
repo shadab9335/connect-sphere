@@ -104,6 +104,18 @@ public class AuthController {
     // USER PROFILE & INTERESTS ENDPOINTS  —  called by FeedService
     // =========================================================================
 
+//    // GET /auth/users?excludeUserId=...
+//    // Backs the Discover screen's people list (profileService.fetchAllUsers).
+//    // excludeUserId is optional and keeps the signed-in user out of their
+//    // own Discover feed; the screen also filters client-side, so omitting
+//    // it is harmless.
+//    @GetMapping("/auth/users")
+//    public ResponseEntity<ApiResponse> getAllUsers(
+//            @RequestParam(required = false) String excludeUserId) {
+//        log.info("Fetching all users (excluding {})", excludeUserId);
+//        return ResponseEntity.ok(userService.getAllUsers(excludeUserId));
+//    }
+
     // GET /api/users/{userId}/profile
     // Returns: { userId, displayName, avatar, color }
     @GetMapping("/api/users/{userId}/profile")
@@ -131,9 +143,27 @@ public class AuthController {
                 .body(Map.of("error", "User not found: " + userId));
     }
 
-    @PostMapping("/internal/users/batch")
-    public ResponseEntity<ApiResponse> getBatchProfiles(@RequestBody BatchProfileRequest request) {
-        ApiResponse response = userService.getBatchProfiles(request.getUserIds());
+    // GET /api/users/search?query=...&excludeUserId=...&limit=20
+    // Called by ChatService to power "search people" in the chat section.
+    // excludeUserId keeps the requesting user out of their own results;
+    // limit defaults to 20 if not supplied.
+    @GetMapping("/api/users/search")
+    public ResponseEntity<ApiResponse> searchUsers(
+            @RequestParam String query,
+            @RequestParam(required = false) String excludeUserId,
+            @RequestParam(required = false, defaultValue = "20") int limit) {
+        log.info("Searching users matching '{}' (excluding {})", query, excludeUserId);
+        // Mongo's "IdNot" comparison needs a real value, not a Java null,
+        // so fall back to a sentinel that can't match any real _id.
+        String excludeId = (excludeUserId == null || excludeUserId.isBlank()) ? "__none__" : excludeUserId;
+        return ResponseEntity.ok(userService.searchUsers(query, excludeId, limit));
+    }
+
+    // updates to fetch users for connection suggestions and connections list:
+    @GetMapping("/api/users")
+    public ResponseEntity<ApiResponse> getAllUsers() {
+        ApiResponse response = userService.getAllUsers();
         return ResponseEntity.ok(response);
     }
 }
+
