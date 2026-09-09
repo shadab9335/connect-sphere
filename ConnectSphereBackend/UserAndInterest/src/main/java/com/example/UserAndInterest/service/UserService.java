@@ -4,6 +4,7 @@ import com.example.UserAndInterest.dto.*;
 import com.example.UserAndInterest.model.*;
 import com.example.UserAndInterest.repository.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -170,6 +171,74 @@ public class UserService {
                     return ApiResponse.success("Interests fetched", interestNames);
                 })
                 .orElse(ApiResponse.error("User not found"));
+    }
+
+    // ── LIST ALL USERS (backs the Discover screen's people list) ─────────────
+    // Returns the full user list minus the caller, in the exact field names
+    // DiscoverScreen.jsx already reads: id / fullName / employeeId /
+    // department / location / avatar / avatarColor / profilePicture, plus
+    // interests as [{ id, interestName }]. Passwords are never included.
+    //
+    // No pagination: this is a company directory, and the screen filters
+    // client-side. Add a Pageable if the user base ever outgrows one
+    // response.
+
+    public ApiResponse getAllUsers(String excludeUserId) {
+        List<Map<String, Object>> users = userRepository.findAll().stream()
+                .filter(user -> excludeUserId == null || !excludeUserId.equals(user.getId()))
+                .map(this::toDiscoverProfile)
+                .collect(Collectors.toList());
+        return ApiResponse.success("Users fetched", users);
+    }
+
+    private Map<String, Object> toDiscoverProfile(User user) {
+        Map<String, Object> profile = new LinkedHashMap<>();
+        profile.put("id", user.getId());
+        profile.put("employeeId", user.getEmployeeId());
+        profile.put("fullName", user.getFullName());
+        profile.put("avatar", user.getAvatar());
+        profile.put("avatarColor", user.getAvatarColor());
+        profile.put("profilePicture", user.getProfilePicture());
+        profile.put("department", user.getDepartment());
+        profile.put("location", user.getLocation());
+        profile.put("building", user.getBuilding());
+        profile.put("floor", user.getFloor());
+        profile.put("interests", user.getInterests() == null ? List.of()
+                : user.getInterests().stream().map(interest -> {
+                    Map<String, Object> mapped = new LinkedHashMap<>();
+                    mapped.put("id", interest.getId());
+                    mapped.put("interestName", interest.getInterestName());
+                    mapped.put("picture", interest.getPicture());
+                    return mapped;
+                }).collect(Collectors.toList()));
+        return profile;
+    }
+
+    // ── SEARCH USERS (called by ChatService for the "search people" flow) ────
+    // NOTE: query must be at least 2 characters — a 1-char query against a
+    // ContainingIgnoreCase filter on a large user base would return too much
+    // to be a useful "type to search" result, so we defensively no-op below
+    // that instead of hitting Mongo with a near-unbounded scan.
+
+    public ApiResponse searchUsers(String query, String excludeUserId, int limit) {
+        if (query == null || query.trim().length() < 2) {
+            return ApiResponse.success("Search results fetched", Collections.emptyList());
+        }
+
+        List<User> matches = userRepository.findByFullNameContainingIgnoreCaseAndIdNot(
+                query.trim(), excludeUserId, PageRequest.of(0, Math.max(1, limit)));
+
+        List<Map<String, Object>> results = matches.stream().map(user -> {
+            Map<String, Object> profile = new LinkedHashMap<>();
+            profile.put("userId", user.getId());
+            profile.put("displayName", user.getFullName());
+            profile.put("avatar", user.getAvatar());
+            profile.put("color", user.getAvatarColor());
+            profile.put("profilePicture", user.getProfilePicture());
+            return profile;
+        }).collect(Collectors.toList());
+
+        return ApiResponse.success("Search results fetched", results);
     }
 
     // ── HELPERS ───────────────────────────────────────────────────────────────
