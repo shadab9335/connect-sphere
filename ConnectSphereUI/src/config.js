@@ -5,8 +5,6 @@
 const config = {
     USER_API: "http://localhost:8081",
     FEED_API: "http://localhost:8082",
-    CHAT_API: "http://localhost:8084", // added for chat service - pritam
-    EVENT_API: "http://localhost:8083", // added for event service - pritam
 };
 
 export default config;
