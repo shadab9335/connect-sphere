@@ -41,7 +41,6 @@
 //         });
 // };
 
-
 import axios from 'axios';
 import config from '../config';
 const BASE = config.USER_API;
@@ -61,6 +60,12 @@ export const fetchMyProfile = () =>
 // to fetch users
 export const fetchAllUsers = () =>
     axios.get(`${config.USER_API}/api/users`);
+
+export const fetchUserProfileById = (userId) =>
+    axios.get(`${config.USER_API}/api/users/${userId}/profile`);
+
+export const fetchUserById = (userId) =>
+    axios.get(`${config.USER_API}/api/users/${userId}`);
 // PUT /auth/profile/update — persists all editable fields in ONE request.
 // Backend expects (per ProfileUpdateRequest.java):
 //   { fullName, isAnonymous, department, building, floor, profilePicture, interests }

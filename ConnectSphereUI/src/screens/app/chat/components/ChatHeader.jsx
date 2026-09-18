@@ -37,11 +37,13 @@
 import React, { useState } from "react";
 import Avatar from "../../../../components/Avatar";
 import { formatLastSeen } from "../chatUtils";
+import GroupMembersModal from "./GroupMembersModal";
 
-function ChatHeader({ chat, onBack, connected, onRename }) {
+function ChatHeader({ chat, onBack, connected, onRename, myId, onAddMember, onRemoveMember, onDeleteGroup, onShowMembers }) {
     const [editing, setEditing] = useState(false);
     const [draft, setDraft] = useState(chat.nickname || chat.realName || chat.name);
     const [menuOpen, setMenuOpen] = useState(false);
+    const [showMembers, setShowMembers] = useState(false);
 
     const startEdit = () => {
         setDraft(chat.nickname || chat.realName || chat.name);
@@ -67,6 +69,8 @@ function ChatHeader({ chat, onBack, connected, onRename }) {
     const statusDotColor = !chat.group
         ? (chat.online ? "#43E97B" : "#8892B0")
         : (connected ? "#43E97B" : "#FFB347");
+
+    const isOwner = chat.group && chat.createdBy === myId;
 
     return (
         <div style={{
@@ -109,6 +113,13 @@ function ChatHeader({ chat, onBack, connected, onRename }) {
                         display: "flex", alignItems: "center", gap: 6,
                     }}>
                         <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{chat.name}</span>
+                        {chat.group && (
+                            <span
+                                onClick={onShowMembers}
+                                style={{ cursor: "pointer", fontSize: 14 }}
+                                title="View members"
+                            >👪</span>
+                        )}
                         {chat.nickname && (
                             <span style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.6)", fontFamily: "'DM Sans', sans-serif" }}>
                                 (nickname)
@@ -125,7 +136,7 @@ function ChatHeader({ chat, onBack, connected, onRename }) {
                     {statusText}
                 </div>
             </div>
-            {!chat.group && !editing && (
+            {/* {!chat.group && !editing && (
                 <div style={{ position: "relative" }}>
                     <button onClick={() => setMenuOpen(v => !v)} style={{
                         border: "none", background: "rgba(255,255,255,0.15)", borderRadius: 10,
@@ -141,8 +152,44 @@ function ChatHeader({ chat, onBack, connected, onRename }) {
                         </div>
                     )}
                 </div>
+            )} */}
+            {!editing && (chat.group ? isOwner : true) && (
+                <div style={{ position: "relative" }}>
+                    <button onClick={() => setMenuOpen(v => !v)} style={{
+                        border: "none", background: "rgba(255,255,255,0.15)", borderRadius: 10,
+                        width: 34, height: 34, fontSize: 18, cursor: "pointer", color: "white",
+                    }}>⋯</button>
+                    {menuOpen && (
+                        <div style={{
+                            position: "absolute", top: 40, right: 0, background: "white", borderRadius: 12,
+                            boxShadow: "0 6px 20px rgba(0,0,0,0.2)", overflow: "hidden", zIndex: 5, minWidth: 170,
+                        }}>
+                            {!chat.group && (
+                                <>
+                                    <MenuItem label="Rename / set nickname" onClick={startEdit} />
+                                    {chat.nickname && <MenuItem label="Reset to real name" onClick={resetToRealName} />}
+                                </>
+                            )}
+                            {chat.group && isOwner && (
+                                <>
+                                    <MenuItem label="Add member" onClick={() => { setMenuOpen(false); onAddMember(chat); }} />
+                                    {/* <MenuItem label="Remove member" onClick={() => { setMenuOpen(false); onRemoveMember(chat); }} /> */}
+                                    <MenuItem label="Delete group" onClick={() => { setMenuOpen(false); onDeleteGroup(chat); }} />
+                                </>
+                            )}
+                        </div>
+                    )}
+                </div>
+            )}
+            {showMembers && (
+                <GroupMembersModal
+                    participantIds={chat.participantIds}
+                    createdBy={chat.createdBy}
+                    onClose={() => setShowMembers(false)}
+                />
             )}
         </div>
+
     );
 }
 

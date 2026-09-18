@@ -60,10 +60,14 @@
 
 // export default ChatScreen;
 
-
-
 // by pritam.
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+    useCallback,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+} from "react";
 import ChatHeader from "./components/ChatHeader";
 import MessageList from "./components/MessageList";
 import MessageInput from "./components/MessageInput";
@@ -72,6 +76,7 @@ import ChatList from "./components/ChatList";
 import useChatSocket from "../../../hooks/useChatSocket";
 import {
     createDmConversation,
+    createGroupConversation,
     currentUserId,
     fetchMessages,
     hydrateConversation,
@@ -83,13 +88,31 @@ import {
     setConversationNickname,
     uploadAttachment,
 } from "../../../services/chatService";
-import { initialsOf, mergeMessage, normalizeMessage, previewFor } from "./chatUtils";
+import {
+    initialsOf,
+    mergeMessage,
+    normalizeMessage,
+    previewFor,
+} from "./chatUtils";
+import CreateGroupModal from "./components/CreateGroupModal";
+import GroupMembersModal from "./components/GroupMembersModal";
+import AddMemberModal from "./components/AddMemberModal";
+import {
+    addGroupMember,
+    removeGroupMember,
+    deleteGroupConversation,
+} from "../../../services/chatService";
+import { leaveGroupConversation } from "../../../services/chatService";
 
 const BG = "transparent";
 
 const SHELL = {
-    flex: 1, display: "flex", flexDirection: "column",
-    overflow: "hidden", background: BG, borderRadius: "25px 25px 0 0",
+    flex: 1,
+    display: "flex",
+    flexDirection: "column",
+    overflow: "hidden",
+    background: BG,
+    borderRadius: "25px 25px 0 0",
 };
 
 function ChatScreen({ profilePic, chatTarget, onChatTargetHandled }) {
@@ -98,7 +121,7 @@ function ChatScreen({ profilePic, chatTarget, onChatTargetHandled }) {
 
     const [conversations, setConversations] = useState([]);
     const [loadingChats, setLoadingChats] = useState(true);
-    const [active, setActive] = useState(null);   // the hydrated conversation, not an id
+    const [active, setActive] = useState(null); // the hydrated conversation, not an id
     const [messages, setMessages] = useState([]);
     const [loadingMessages, setLoadingMessages] = useState(false);
     const [hasMoreMessages, setHasMoreMessages] = useState(true);
@@ -121,8 +144,12 @@ function ChatScreen({ profilePic, chatTarget, onChatTargetHandled }) {
     const knownIdsRef = useRef(new Set());
     const hasConnectedRef = useRef(false);
 
-    useEffect(() => { activeIdRef.current = active ? active.id : null; }, [active]);
-    useEffect(() => { knownIdsRef.current = new Set(conversations.map(c => c.id)); }, [conversations]);
+    useEffect(() => {
+        activeIdRef.current = active ? active.id : null;
+    }, [active]);
+    useEffect(() => {
+        knownIdsRef.current = new Set(conversations.map((c) => c.id));
+    }, [conversations]);
 
     const loadConversations = useCallback(async () => {
         if (!myId) {
@@ -142,36 +169,60 @@ function ChatScreen({ profilePic, chatTarget, onChatTargetHandled }) {
         }
     }, [myId]);
 
-    useEffect(() => { loadConversations(); }, [loadConversations]);
+    useEffect(() => {
+        loadConversations();
+    }, [loadConversations]);
 
-    const openConversation = useCallback(async (conversation) => {
-        setActive(conversation);
-        setMessages([]);
-        setLoadingMessages(true);
-        setHasMoreMessages(true);
-        setConversations(prev => prev.map(c => (c.id === conversation.id ? { ...c, unread: 0 } : c)));
+    const openConversation = useCallback(
+        async (conversation) => {
+            setActive(conversation);
+            setMessages([]);
+            setLoadingMessages(true);
+            setHasMoreMessages(true);
+            setConversations((prev) =>
+                prev.map((c) => (c.id === conversation.id ? { ...c, unread: 0 } : c)),
+            );
 
-        try {
-            const res = await fetchMessages(conversation.id);
-            // MessageService sorts newest-first for cursor pagination; the UI
-            // reads oldest-first.
-            const thread = (res?.data || []).map(m => normalizeMessage(m, myId)).reverse();
-            setMessages(thread);
-            // A short first page usually means there's nothing older anyway;
-            // loadOlderMessages() double-checks against the server either way.
-            if (thread.length === 0) setHasMoreMessages(false);
+            try {
+                const res = await fetchMessages(conversation.id);
+                // MessageService sorts newest-first for cursor pagination; the UI
+                // reads oldest-first.
+                const thread = (res?.data || [])
+                    .map((m) => normalizeMessage(m, myId))
+                    .reverse();
+                setMessages(thread);
+                // A short first page usually means there's nothing older anyway;
+                // loadOlderMessages() double-checks against the server either way.
+                if (thread.length === 0) setHasMoreMessages(false);
 
-            const newest = thread[thread.length - 1];
-            if (newest) {
-                markConversationRead(conversation.id, newest.id).catch(() => { /* badge only */ });
+                const newest = thread[thread.length - 1];
+                if (newest) {
+                    markConversationRead(conversation.id, newest.id).catch(() => {
+                        /* badge only */
+                    });
+                }
+            } catch (err) {
+                console.error("Failed to load messages", err);
+                setError("Couldn't load this conversation.");
+            } finally {
+                setLoadingMessages(false);
             }
+        },
+        [myId],
+    );
+
+    const handleLeaveGroup = useCallback(async () => {
+        if (!window.confirm(`Leave "${active.name}"?`)) return;
+        try {
+            await leaveGroupConversation(active.id);
+            setConversations(prev => prev.filter(c => c.id !== active.id));
+            setShowMembers(false);
+            closeConversation();
         } catch (err) {
-            console.error("Failed to load messages", err);
-            setError("Couldn't load this conversation.");
-        } finally {
-            setLoadingMessages(false);
+            console.error("Failed to leave group", err);
+            setError("Couldn't leave the group.");
         }
-    }, [myId]);
+    }, [active]);
 
     // WhatsApp-style "load earlier messages": MessageService's history is
     // permanent and paginated (30 at a time, cursor = oldest visible
@@ -185,11 +236,13 @@ function ChatScreen({ profilePic, chatTarget, onChatTargetHandled }) {
         setLoadingMoreMessages(true);
         try {
             const res = await fetchMessages(active.id, oldest.id);
-            const older = (res?.data || []).map(m => normalizeMessage(m, myId)).reverse();
+            const older = (res?.data || [])
+                .map((m) => normalizeMessage(m, myId))
+                .reverse();
             if (older.length === 0) {
                 setHasMoreMessages(false);
             } else {
-                setMessages(prev => [...older, ...prev]);
+                setMessages((prev) => [...older, ...prev]);
             }
         } catch (err) {
             console.error("Failed to load older messages", err);
@@ -198,6 +251,21 @@ function ChatScreen({ profilePic, chatTarget, onChatTargetHandled }) {
             setLoadingMoreMessages(false);
         }
     }, [active, messages, loadingMoreMessages, hasMoreMessages, myId]);
+
+    // grp_chat.
+    const [showCreateGroup, setShowCreateGroup] = useState(false);
+    const [showMembers, setShowMembers] = useState(false);
+    const [showAddMember, setShowAddMember] = useState(false);
+    const createGroup = useCallback(
+        async (name, participantIds) => {
+            const res = await createGroupConversation(name, participantIds);
+            const conversation = await resolveHydratedConversation(res.data, myId);
+            setConversations((prev) => [conversation, ...prev]);
+            setShowCreateGroup(false);
+            openConversation(conversation);
+        },
+        [myId, openConversation],
+    );
 
     // Arriving from DiscoverScreen's Message button: the conversation already
     // exists (POST /conversations is find-or-create), so just open it. The
@@ -211,16 +279,18 @@ function ChatScreen({ profilePic, chatTarget, onChatTargetHandled }) {
             const conversation = await resolveHydratedConversation(chatTarget, myId);
             if (cancelled) return;
 
-            setConversations(prev => (
-                prev.some(c => c.id === conversation.id)
-                    ? prev.map(c => (c.id === conversation.id ? conversation : c))
-                    : [conversation, ...prev]
-            ));
+            setConversations((prev) =>
+                prev.some((c) => c.id === conversation.id)
+                    ? prev.map((c) => (c.id === conversation.id ? conversation : c))
+                    : [conversation, ...prev],
+            );
             openConversation(conversation);
             if (onChatTargetHandled) onChatTargetHandled();
         })();
 
-        return () => { cancelled = true; };
+        return () => {
+            cancelled = true;
+        };
     }, [chatTarget, myId, openConversation, onChatTargetHandled]);
 
     // Chat search box: debounce against GET /users/search (connections-only —
@@ -247,48 +317,114 @@ function ChatScreen({ profilePic, chatTarget, onChatTargetHandled }) {
             }
         }, 300);
 
-        return () => { cancelled = true; clearTimeout(timer); };
+        return () => {
+            cancelled = true;
+            clearTimeout(timer);
+        };
     }, [search]);
 
     // Only offer people who don't already have a thread — those already show
     // up in the filtered conversation list above, so this avoids duplicates.
-    const newPeople = useMemo(() => people.filter(p => !p.existingConversationId), [people]);
+    const newPeople = useMemo(
+        () => people.filter((p) => !p.existingConversationId),
+        [people],
+    );
 
     // Only if connected: GET /users/search is itself connections-scoped, so
     // anyone it returns is already a connection — tapping them here always
     // opens an existing DM or safely creates one.
-    const openPerson = useCallback(async (person) => {
-        setError("");
+    const openPerson = useCallback(
+        async (person) => {
+            setError("");
+            try {
+                let conversation = conversations.find(
+                    (c) => c.id === person.existingConversationId,
+                );
+                if (!conversation && person.existingConversationId) {
+                    const res = await listConversations();
+                    const match = (res?.data || []).find(
+                        (c) => c.id === person.existingConversationId,
+                    );
+                    if (match) conversation = await hydrateConversation(match, myId);
+                }
+                if (!conversation) {
+                    const res = await createDmConversation(person.userId);
+                    conversation = await resolveHydratedConversation(res.data, myId);
+                }
+                setConversations((prev) =>
+                    prev.some((c) => c.id === conversation.id)
+                        ? prev.map((c) => (c.id === conversation.id ? conversation : c))
+                        : [conversation, ...prev],
+                );
+                setSearch("");
+                openConversation(conversation);
+            } catch (err) {
+                console.error("Couldn't open chat with person", err);
+                setError("Couldn't start that chat.");
+            }
+        },
+        [conversations, myId, openConversation],
+    );
+
+    const handleAddMember = useCallback(
+        async (memberId) => {
+            await addGroupMember(active.id, memberId);
+            const updated = [...(active.participantIds || []), memberId];
+            setActive((prev) => ({ ...prev, participantIds: updated }));
+            setConversations((prev) =>
+                prev.map((c) =>
+                    c.id === active.id ? { ...c, participantIds: updated } : c,
+                ),
+            );
+            setShowAddMember(false);
+        },
+        [active],
+    );
+
+    const handleRemoveMember = useCallback(
+        async (memberId) => {
+            try {
+                await removeGroupMember(active.id, memberId);
+                const updated = (active.participantIds || []).filter(
+                    (id) => id !== memberId,
+                );
+                setActive((prev) => ({ ...prev, participantIds: updated }));
+                setConversations((prev) =>
+                    prev.map((c) =>
+                        c.id === active.id ? { ...c, participantIds: updated } : c,
+                    ),
+                );
+            } catch (err) {
+                console.error("Failed to remove member", err);
+                setError("Couldn't remove that member.");
+            }
+        },
+        [active],
+    );
+
+    const handleDeleteGroup = useCallback(async () => {
+        if (!window.confirm(`Delete "${active.name}"? This can't be undone.`))
+            return;
         try {
-            let conversation = conversations.find(c => c.id === person.existingConversationId);
-            if (!conversation && person.existingConversationId) {
-                const res = await listConversations();
-                const match = (res?.data || []).find(c => c.id === person.existingConversationId);
-                if (match) conversation = await hydrateConversation(match, myId);
-            }
-            if (!conversation) {
-                const res = await createDmConversation(person.userId);
-                conversation = await resolveHydratedConversation(res.data, myId);
-            }
-            setConversations(prev => (
-                prev.some(c => c.id === conversation.id)
-                    ? prev.map(c => (c.id === conversation.id ? conversation : c))
-                    : [conversation, ...prev]
-            ));
-            setSearch("");
-            openConversation(conversation);
+            await deleteGroupConversation(active.id);
+            setConversations((prev) => prev.filter((c) => c.id !== active.id));
+            closeConversation();
         } catch (err) {
-            console.error("Couldn't open chat with person", err);
-            setError("Couldn't start that chat.");
+            console.error("Failed to delete group", err);
+            setError("Couldn't delete the group.");
         }
-    }, [conversations, myId, openConversation]);
+    }, [active]);
 
     // "Mark as read" from the chat list — no thread opened, no message id,
     // just zero the badge (POST /conversations/{id}/read with no body).
     const markAsRead = useCallback((conversationId, e) => {
         if (e) e.stopPropagation();
-        setConversations(prev => prev.map(c => (c.id === conversationId ? { ...c, unread: 0 } : c)));
-        markConversationRead(conversationId).catch(err => console.error("Mark as read failed", err));
+        setConversations((prev) =>
+            prev.map((c) => (c.id === conversationId ? { ...c, unread: 0 } : c)),
+        );
+        markConversationRead(conversationId).catch((err) =>
+            console.error("Mark as read failed", err),
+        );
     }, []);
 
     // Nickname rename — one-sided, PUT /conversations/{id}/nickname. Blank
@@ -297,11 +433,19 @@ function ChatScreen({ profilePic, chatTarget, onChatTargetHandled }) {
         const clean = (nickname || "").trim();
         try {
             await setConversationNickname(conversationId, clean);
-            const apply = (c) => (c.id === conversationId
-                ? { ...c, nickname: clean || null, name: clean || c.realName, avatar: initialsOf(clean || c.realName) }
-                : c);
-            setConversations(prev => prev.map(apply));
-            setActive(prev => (prev && prev.id === conversationId ? apply(prev) : prev));
+            const apply = (c) =>
+                c.id === conversationId
+                    ? {
+                        ...c,
+                        nickname: clean || null,
+                        name: clean || c.realName,
+                        avatar: initialsOf(clean || c.realName),
+                    }
+                    : c;
+            setConversations((prev) => prev.map(apply));
+            setActive((prev) =>
+                prev && prev.id === conversationId ? apply(prev) : prev,
+            );
         } catch (err) {
             console.error("Failed to set nickname", err);
             setError("Couldn't update the nickname.");
@@ -309,30 +453,45 @@ function ChatScreen({ profilePic, chatTarget, onChatTargetHandled }) {
     }, []);
 
     // A message in the thread that's currently open.
-    const handleIncoming = useCallback((raw) => {
-        const message = normalizeMessage(raw, myId);
-        setMessages(prev => mergeMessage(prev, message));
-        setConversations(prev => prev.map(c => (
-            c.id === raw.conversationId
-                ? { ...c, last: message.text, lastMessageAt: raw.sentAt }
-                : c
-        )));
-    }, [myId]);
+    const handleIncoming = useCallback(
+        (raw) => {
+            const message = normalizeMessage(raw, myId);
+            setMessages((prev) => mergeMessage(prev, message));
+            setConversations((prev) =>
+                prev.map((c) =>
+                    c.id === raw.conversationId
+                        ? { ...c, last: message.text, lastMessageAt: raw.sentAt }
+                        : c,
+                ),
+            );
+        },
+        [myId],
+    );
 
     // A message in any other thread — bump the badge, or pull in a
     // conversation someone just started with us.
-    const handleNotification = useCallback((raw) => {
-        if (raw.conversationId === activeIdRef.current) return; // handleIncoming has it
-        if (!knownIdsRef.current.has(raw.conversationId)) {
-            loadConversations();
-            return;
-        }
-        setConversations(prev => prev.map(c => (
-            c.id === raw.conversationId
-                ? { ...c, last: raw.content, lastMessageAt: raw.sentAt, unread: c.unread + 1 }
-                : c
-        )));
-    }, [loadConversations]);
+    const handleNotification = useCallback(
+        (raw) => {
+            if (raw.conversationId === activeIdRef.current) return; // handleIncoming has it
+            if (!knownIdsRef.current.has(raw.conversationId)) {
+                loadConversations();
+                return;
+            }
+            setConversations((prev) =>
+                prev.map((c) =>
+                    c.id === raw.conversationId
+                        ? {
+                            ...c,
+                            last: raw.content,
+                            lastMessageAt: raw.sentAt,
+                            unread: c.unread + 1,
+                        }
+                        : c,
+                ),
+            );
+        },
+        [loadConversations],
+    );
 
     const { connected, sendMessage: publish } = useChatSocket({
         token,
@@ -359,16 +518,23 @@ function ChatScreen({ profilePic, chatTarget, onChatTargetHandled }) {
         if (!text || !active) return;
 
         const placeholderId = `pending-${Date.now()}`;
-        setMessages(prev => [...prev, { id: placeholderId, from: "me", text, time: "Now", pending: true }]);
-        setConversations(prev => prev.map(c => (
-            c.id === active.id ? { ...c, last: text, lastMessageAt: new Date().toISOString() } : c
-        )));
+        setMessages((prev) => [
+            ...prev,
+            { id: placeholderId, from: "me", text, time: "Now", pending: true },
+        ]);
+        setConversations((prev) =>
+            prev.map((c) =>
+                c.id === active.id
+                    ? { ...c, last: text, lastMessageAt: new Date().toISOString() }
+                    : c,
+            ),
+        );
         setMsg("");
 
         if (publish(active.id, text)) {
             setError("");
         } else {
-            setMessages(prev => prev.filter(m => m.id !== placeholderId));
+            setMessages((prev) => prev.filter((m) => m.id !== placeholderId));
             setError("Not connected — message wasn't sent.");
         }
     };
@@ -394,17 +560,31 @@ function ChatScreen({ profilePic, chatTarget, onChatTargetHandled }) {
             const res = await uploadAttachment(active.id, file);
             const attachment = res.data;
 
-            setMessages(prev => [...prev, {
-                id: placeholderId, from: "me", text: "", attachment, time: "Now", pending: true,
-            }]);
-            setConversations(prev => prev.map(c => (
-                c.id === active.id
-                    ? { ...c, last: previewFor("", attachment), lastMessageAt: new Date().toISOString() }
-                    : c
-            )));
+            setMessages((prev) => [
+                ...prev,
+                {
+                    id: placeholderId,
+                    from: "me",
+                    text: "",
+                    attachment,
+                    time: "Now",
+                    pending: true,
+                },
+            ]);
+            setConversations((prev) =>
+                prev.map((c) =>
+                    c.id === active.id
+                        ? {
+                            ...c,
+                            last: previewFor("", attachment),
+                            lastMessageAt: new Date().toISOString(),
+                        }
+                        : c,
+                ),
+            );
 
             if (!publish(active.id, "", attachment)) {
-                setMessages(prev => prev.filter(m => m.id !== placeholderId));
+                setMessages((prev) => prev.filter((m) => m.id !== placeholderId));
                 setError("Not connected — that didn't send.");
             }
         } catch (err) {
@@ -413,7 +593,8 @@ function ChatScreen({ profilePic, chatTarget, onChatTargetHandled }) {
             // with a plain-text 400 body (e.g. "IMAGE attachment too large.
             // Max size: 10 MB") — surface that directly since it's already
             // written for a human to read, rather than a generic message.
-            const serverMessage = typeof err?.response?.data === "string" ? err.response.data : null;
+            const serverMessage =
+                typeof err?.response?.data === "string" ? err.response.data : null;
             setError(serverMessage || "Couldn't upload that file.");
         } finally {
             setUploadingAttachment(false);
@@ -441,28 +622,37 @@ function ChatScreen({ profilePic, chatTarget, onChatTargetHandled }) {
     // resetting scroll/messages the way re-running openConversation would.
     useEffect(() => {
         if (!active) return;
-        const fresh = conversations.find(c => c.id === active.id);
+        const fresh = conversations.find((c) => c.id === active.id);
         if (!fresh) return;
-        setActive(prev => (prev && prev.id === fresh.id
-            ? {
-                ...prev,
-                online: fresh.online,
-                lastSeenAt: fresh.lastSeenAt,
-                otherLastReadMessageId: fresh.otherLastReadMessageId,
-            }
-            : prev));
+        setActive((prev) =>
+            prev && prev.id === fresh.id
+                ? {
+                    ...prev,
+                    online: fresh.online,
+                    lastSeenAt: fresh.lastSeenAt,
+                    otherLastReadMessageId: fresh.otherLastReadMessageId,
+                }
+                : prev,
+        );
         // Only re-run when the LIST refreshes or a different thread opens —
         // not on every `active` change, which would just be this effect's
         // own update feeding back into itself.
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [conversations, active?.id]);const unreadTotal = useMemo(() => conversations.reduce((sum, c) => sum + (c.unread || 0), 0), [conversations]);
+    }, [conversations, active?.id]);
+    const unreadTotal = useMemo(
+        () => conversations.reduce((sum, c) => sum + (c.unread || 0), 0),
+        [conversations],
+    );
 
     const visibleConversations = useMemo(() => {
         const term = search.trim().toLowerCase();
         return conversations
-            .filter(c => !term || c.name.toLowerCase().includes(term))
-            .filter(c => filterMode !== "unread" || c.unread > 0)
-            .sort((a, b) => new Date(b.lastMessageAt || 0) - new Date(a.lastMessageAt || 0));
+            .filter((c) => !term || c.name.toLowerCase().includes(term))
+            .filter((c) => filterMode !== "unread" || c.unread > 0)
+            .sort(
+                (a, b) =>
+                    new Date(b.lastMessageAt || 0) - new Date(a.lastMessageAt || 0),
+            );
     }, [conversations, search, filterMode]);
 
     if (active) {
@@ -473,6 +663,10 @@ function ChatScreen({ profilePic, chatTarget, onChatTargetHandled }) {
                     onBack={closeConversation}
                     connected={connected}
                     onRename={renameConversation}
+                    myId={myId}
+                    onAddMember={() => setShowAddMember(true)}
+                    onDeleteGroup={handleDeleteGroup}
+                    onShowMembers={() => setShowMembers(true)}
                 />
                 <MessageList
                     messages={messages}
@@ -491,12 +685,54 @@ function ChatScreen({ profilePic, chatTarget, onChatTargetHandled }) {
                     uploading={uploadingAttachment}
                     disabled={!connected}
                 />
+                {/* {showMembers && (
+                    <GroupMembersModal
+                        participantIds={active.participantIds}
+                        createdBy={active.createdBy}
+                        onClose={() => setShowMembers(false)}
+                    />
+                )} */}
+                {/* {showMembers && (
+                    <GroupMembersModal
+                        participantIds={active.participantIds}
+                        createdBy={active.createdBy}
+                        isOwner={active.createdBy === myId}
+                        onRemove={handleRemoveMember}
+                        onClose={() => setShowMembers(false)}
+                    />
+                )} */}
+                {showMembers && (
+                    <GroupMembersModal
+                        participantIds={active.participantIds}
+                        createdBy={active.createdBy}
+                        isOwner={active.createdBy === myId}
+                        currentUserId={myId}
+                        onRemove={handleRemoveMember}
+                        onLeave={handleLeaveGroup}
+                        onClose={() => setShowMembers(false)}
+                    />
+                )}
+                {showAddMember && (
+                    <AddMemberModal
+                        existingParticipantIds={active.participantIds || []}
+                        onClose={() => setShowAddMember(false)}
+                        onAdd={handleAddMember}
+                    />
+                )}
             </div>
         );
     }
 
     return (
         <div style={SHELL}>
+            {/* <ChatListHeader
+                profilePic={profilePic}
+                search={search}
+                setSearch={setSearch}
+                filterMode={filterMode}
+                setFilterMode={setFilterMode}
+                unreadTotal={unreadTotal}
+            /> */}
             <ChatListHeader
                 profilePic={profilePic}
                 search={search}
@@ -504,6 +740,7 @@ function ChatScreen({ profilePic, chatTarget, onChatTargetHandled }) {
                 filterMode={filterMode}
                 setFilterMode={setFilterMode}
                 unreadTotal={unreadTotal}
+                onNewGroup={() => setShowCreateGroup(true)}
             />
             {error && <ErrorStrip text={error} />}
             <ChatList
@@ -516,22 +753,34 @@ function ChatScreen({ profilePic, chatTarget, onChatTargetHandled }) {
                 peopleLoading={peopleLoading}
                 onOpenPerson={openPerson}
             />
+            {showCreateGroup && (
+                <CreateGroupModal
+                    onClose={() => setShowCreateGroup(false)}
+                    onCreate={createGroup}
+                />
+            )}
         </div>
     );
 }
 
 function ErrorStrip({ text }) {
     return (
-        <div style={{
-            margin: "0 14px 8px", padding: "8px 12px",
-            background: "#FEF2F2", border: "1.5px solid #FCA5A5", borderRadius: 12,
-            fontSize: 11, color: "#B91C1C", fontFamily: "'DM Sans', sans-serif",
-            flexShrink: 0,
-        }}>
+        <div
+            style={{
+                margin: "0 14px 8px",
+                padding: "8px 12px",
+                background: "#FEF2F2",
+                border: "1.5px solid #FCA5A5",
+                borderRadius: 12,
+                fontSize: 11,
+                color: "#B91C1C",
+                fontFamily: "'DM Sans', sans-serif",
+                flexShrink: 0,
+            }}
+        >
             {text}
         </div>
     );
 }
 
 export default ChatScreen;
-

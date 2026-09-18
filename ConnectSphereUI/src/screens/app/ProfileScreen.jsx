@@ -9,7 +9,9 @@ import { fetchUserPosts, fetchUserBookmarks } from "../../services/feedService";
 import MyPostsScreen from "./MyPostsScreen";
 import MyEventsScreen from "./MyEventsScreen"; // ADDED — Shadab's events feature
 import { fetchMyHostedEvents } from "../../services/eventsService"; // ADDED — Shadab's events feature
-import { getConnectionCount } from "../../services/connectionService.js";
+import { getConnectionCount, getConnectionsForUser } from "../../services/connectionService.js";
+import { createDmConversation, hydrateConversation } from "../../services/chatService";
+import UserProfilePage from "../../components/UserProfilePage";
 const PRIMARY_SOLID = "#6C63FF";
 const CARD_BG = "#f7f0f0";
 
@@ -72,13 +74,18 @@ function Pill({ label, active, color, onClick, disabled }) {
         >{label}</button>
     );
 }
-function ProfileScreen({ myInterests, setMyInterests, profilePic, setProfilePic, onLogout }) {
+function ProfileScreen({ myInterests, setMyInterests, profilePic, setProfilePic, onLogout, onNavigateToChat }) {
     // ── Top-level state ─────────────────────────────────────────────────
     const [editMode, setEditMode] = useState(false);
     const [saving, setSaving] = useState(false);
     const [saveError, setSaveError] = useState("");
     const [privacy, setPrivacy] = useState({ empId: true, anonMsg: true, location: false });
     const [connectionCount, setConnectionCount] = useState(0);
+    const [showConnections, setShowConnections] = useState(false);
+    const [connections, setConnections] = useState([]);
+    const [connectionsLoading, setConnectionsLoading] = useState(false);
+    const [selectedConnectionId, setSelectedConnectionId] = useState(null);
+    const [selectedConnectionForChat, setSelectedConnectionForChat] = useState(null);
     // Initialize from localStorage for instant first paint, then refresh from API.
     const [profile, setProfile] = useState(() => {
         try { return JSON.parse(localStorage.getItem('user') || 'null'); }
@@ -371,6 +378,91 @@ function ProfileScreen({ myInterests, setMyInterests, profilePic, setProfilePic,
             return { ...f, interests: next };
         });
     };
+    const handleOpenConnections = async () => {
+        setShowConnections(true);
+        setConnectionsLoading(true);
+        try {
+            const stored = JSON.parse(localStorage.getItem('user') || '{}');
+            const res = await getConnectionsForUser(stored.id);
+            const raw = res?.data?.data?.connectedUsers || res?.data?.data || res?.data || [];
+            setConnections(Array.isArray(raw) ? raw : []);
+        } catch (err) {
+            console.error('Failed to load connections', err);
+            setConnections([]);
+        } finally {
+            setConnectionsLoading(false);
+        }
+    };
+
+    if (selectedConnectionId) {
+        return (
+            <UserProfilePage
+                userId={selectedConnectionId}
+                onClose={() => setSelectedConnectionId(null)}
+                onNavigateToChat={onNavigateToChat}
+            />
+        );
+    }
+
+    if (showConnections) {
+        return (
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", background: "#F0F4FF" }}>
+                {/* Header */}
+                <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 16px", background: "white", borderBottom: "1.5px solid #E2E8F8", flexShrink: 0 }}>
+                    <button onClick={() => setShowConnections(false)} style={{ background: "none", border: "none", borderRadius: 10, width: 36, height: 36, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6C63FF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="15 18 9 12 15 6" />
+                        </svg>
+                    </button>
+                    <div style={{ fontWeight: 800, fontSize: 18, fontFamily: "'DM Sans', sans-serif", color: COLORS.text }}>My Connections</div>
+                </div>
+                {/* List */}
+                <div style={{ flex: 1, overflowY: "auto", padding: "16px 14px 28px", scrollbarWidth: "none" }}>
+                    {connectionsLoading && <div style={{ textAlign: "center", color: COLORS.muted, padding: 48, fontFamily: "'DM Sans', sans-serif", fontSize: 13 }}>Loading…</div>}
+                    {!connectionsLoading && connections.length === 0 && (
+                        <div style={{ textAlign: "center", padding: "56px 24px" }}>
+                            <div style={{ width: 72, height: 72, borderRadius: 24, background: "white", border: "1.5px solid #E2E8F8", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 34, margin: "0 auto 16px", boxShadow: "0 4px 16px rgba(108,99,255,0.1)" }}>🤝</div>
+                            <div style={{ fontWeight: 800, fontSize: 16, color: COLORS.text, fontFamily: "'DM Sans', sans-serif", marginBottom: 8 }}>No connections yet</div>
+                            <div style={{ fontSize: 13, color: COLORS.muted, fontFamily: "'DM Sans', sans-serif", lineHeight: 1.6 }}>Head to Discover to connect with colleagues!</div>
+                        </div>
+                    )}
+                    {!connectionsLoading && connections.map((c, i) => {
+                        const name = c.fullName || c.displayName || "Unknown";
+                        const initials = name.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2);
+                        const uid = c.userId || c.id;
+                        return (
+                            <div key={uid || i} onClick={() => setSelectedConnectionId(uid)} style={{ background: "white", borderRadius: 14, marginBottom: 10, border: "1.5px solid #E2E8F8", boxShadow: "0 2px 10px rgba(108,99,255,0.07)", overflow: "hidden", borderLeft: "4px solid #6C63FF", cursor: "pointer" }}>
+                                <div style={{ padding: "11px 14px", display: "flex", alignItems: "center", gap: 12 }}>
+                                    <div style={{ width: 44, height: 44, borderRadius: "50%", background: c.avatarColor || "#6C63FF", display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontWeight: 800, fontSize: 16, fontFamily: "'DM Sans', sans-serif", flexShrink: 0, overflow: "hidden", border: "2.5px solid white", boxShadow: "0 2px 8px rgba(0,0,0,0.15)" }}>
+                                        {c.profilePicture ? <img src={c.profilePicture} alt={name} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initials}
+                                    </div>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div style={{ fontWeight: 700, fontSize: 14, color: COLORS.text, fontFamily: "'DM Sans', sans-serif" }}>{name}</div>
+                                        {c.department && <div style={{ fontSize: 12, color: COLORS.muted, fontFamily: "'DM Sans', sans-serif", marginTop: 2 }}>{c.department}</div>}
+                                    </div>
+                                    <button onClick={async (e) => {
+                                        e.stopPropagation();
+                                        try {
+                                            const myId = JSON.parse(localStorage.getItem("user") || "{}").id || null;
+                                            const res = await createDmConversation(uid);
+                                            const hydrated = await hydrateConversation(res.data, myId);
+                                            onNavigateToChat(hydrated);
+                                        } catch (err) { console.error("Couldn't open chat", err); }
+                                    }} style={{ background: "#F0F4FF", border: "1.5px solid #E2E8F8", borderRadius: 8, width: 32, height: 32, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6C63FF" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                        );
+                    })}
+
+                </div>
+            </div>
+        );
+    }
+
     const privacyItems = [
         { key: "empId", label: "Show my Emp ID publicly", sub: "Others can see E0001" },
         { key: "anonMsg", label: "Allow anonymous messaging", sub: "Receive msgs from anon users" },
@@ -385,7 +477,7 @@ function ProfileScreen({ myInterests, setMyInterests, profilePic, setProfilePic,
             || (myInterests || []).map(x => (typeof x === "string" ? x : x?.id || x?.label)));
     // Drilldown: tapping the "Events" stat replaces this screen with MyEventsScreen. (ADDED)
     if (showMyEvents) {
-        return <MyEventsScreen onBack={() => setShowMyEvents(false)} />;
+        return <MyEventsScreen onBack={() => setShowMyEvents(false)} onNavigateToChat={onNavigateToChat} />;
     }
     if (showMyPosts) {
         return (
@@ -417,7 +509,7 @@ function ProfileScreen({ myInterests, setMyInterests, profilePic, setProfilePic,
         );
     }
     return (
-        <div style={{ flex: 1, overflowY: "auto", scrollbarWidth: "none", backgroundImage: `url(${BackgroundImage})`, backgroundSize: "cover", backgroundPosition: "center", borderRadius: "25px 25px 0 0" }}>
+        <div style={{ flex: 1, overflowY: "auto", scrollbarWidth: "none", backgroundImage: `url(${BackgroundImage})`, backgroundSize: "cover", backgroundPosition: "center", borderRadius: "25px 25px 0 0", position: "relative" }}>
             {/* ── Hero Banner: Avatar + Stats (swapped per the new layout) ── */}
             <div style={{
                 background: "transparent",
@@ -470,7 +562,7 @@ function ProfileScreen({ myInterests, setMyInterests, profilePic, setProfilePic,
                             // Placeholder until Discover-based connections are wired in — always 0 for now.
                             // TODO: wire to Discover screen — replace count/onClick once "Connect" actions persist.
                             // { count: "0", label: "Connections", onClick: undefined },
-                            { count: String(connectionCount), label: "Connections", onClick: undefined },
+                            { count: String(connectionCount), label: "Connections", onClick: handleOpenConnections },
                             { count: String(myHostedEvents.length), label: "Events", onClick: () => setShowMyEvents(true) },
                             {
                                 count: String(myPosts.length), label: "Posts", onClick: () => {
@@ -783,6 +875,8 @@ function ProfileScreen({ myInterests, setMyInterests, profilePic, setProfilePic,
                     🚪 Logout
                 </button>
             </div>
+
+
         </div>
     );
 }

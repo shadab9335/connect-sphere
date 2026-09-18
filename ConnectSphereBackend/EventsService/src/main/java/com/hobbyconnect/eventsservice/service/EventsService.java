@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
@@ -42,7 +43,6 @@ public class EventsService {
         }
 
         UserProfileDto profile = userServiceClient.getUserProfile(hostId);
-
         Event event = new Event();
         event.setTitle(req.getTitle());
         event.setInterest(req.getInterest());
@@ -71,7 +71,7 @@ public class EventsService {
     }
 
     // POST /api/events/{id}/join
-    public EventResponse joinEvent(String eventId, String userId) {
+    /*public EventResponse joinEvent(String eventId, String userId) {
         // Validate userId format
         if (userId == null || !userId.matches("^[0-9a-fA-F]{24}$")) {
             throw new BadRequestException("Invalid User ID format. Please log in again.");
@@ -91,10 +91,57 @@ public class EventsService {
         Event saved = eventRepository.save(event);
         log.debug("User {} joined event {}", userId, eventId);
         return toResponse(saved, userId);
+    }*/
+
+    public EventResponse joinEvent(String eventId, String userId) {
+        // Validate userId format
+        if (userId == null || !userId.matches("^[0-9a-fA-F]{24}$")) {
+            throw new BadRequestException("Invalid User ID format. Please log in again.");
+        }
+
+        Event event = findActiveEvent(eventId);
+
+        if (event.getAttendeeIds().contains(userId)) {
+            throw new BadRequestException("You have already joined this event");
+        }
+        if (event.getAttendeeIds().size() >= event.getMaxParticipants()) {
+            throw new BadRequestException("This event is full — no spots remaining");
+        }
+        if (isEventStarted(event)) {
+            throw new BadRequestException(
+                    "Cannot join an event that has already started or completed"
+            );
+        }
+        event.getAttendeeIds().add(userId);
+        event.setUpdatedAt(Instant.now());
+        Event saved = eventRepository.save(event);
+        log.debug("User {} joined event {}", userId, eventId);
+        return toResponse(saved, userId);
     }
 
     // DELETE /api/events/{id}/leave
     // Host cannot leave their own event — they must delete it instead.
+    /*public EventResponse leaveEvent(String eventId, String userId) {
+        Event event = findActiveEvent(eventId);
+
+        // ADDED: block host from leaving
+        if (event.getHostId().equals(userId)) {
+            throw new BadRequestException(
+                    "You are the host and cannot leave your own event. Delete it instead.");
+        }
+        if (!event.getAttendeeIds().contains(userId)) {
+            throw new BadRequestException("You have not joined this event");
+        }
+
+        event.getAttendeeIds().remove(userId);
+        event.setUpdatedAt(Instant.now());
+        Event saved = eventRepository.save(event);
+        log.debug("User {} left event {}", userId, eventId);
+        return toResponse(saved, userId);
+    }*/
+
+    // DELETE /api/events/{id}/leave
+// Host cannot leave their own event — they must delete it instead.
     public EventResponse leaveEvent(String eventId, String userId) {
         Event event = findActiveEvent(eventId);
 
@@ -105,6 +152,12 @@ public class EventsService {
         }
         if (!event.getAttendeeIds().contains(userId)) {
             throw new BadRequestException("You have not joined this event");
+        }
+
+        if (isEventStarted(event)) {
+            throw new BadRequestException(
+                    "Cannot leave an event that has already completed or started."
+            );
         }
 
         event.getAttendeeIds().remove(userId);
@@ -272,6 +325,9 @@ public class EventsService {
 
         // The attendee needs a notification if the event is deleted and they haven't dismissed it
         r.setNeedsCancellationNotification(ev.isDeleted() && !viewedCancellation);
+
+        // by fasi.
+        r.setCompleted(isEventStarted(ev));
         return r;
     }
 
@@ -327,4 +383,16 @@ public class EventsService {
         return eventRepository.findById(eventId)
                 .orElseThrow(() -> new ResourceNotFoundException("Event not found: " + eventId));
     }
+
+    //added by fasi
+    private boolean isEventStarted(Event event) {
+        String eventDateTime = event.getDate() + "T" + event.getTime();
+
+        LocalDateTime eventStart =
+                LocalDateTime.parse(eventDateTime);
+
+        return !eventStart.isAfter(LocalDateTime.now());
+    }
+
+
 }
