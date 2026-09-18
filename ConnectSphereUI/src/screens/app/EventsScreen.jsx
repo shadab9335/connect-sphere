@@ -448,7 +448,10 @@ function EventsScreen({ myInterests }) {
                       👤 {ev.hostName}
                     </div>
                   </div>
-                  <div style={{ marginBottom: 10 }}>
+
+
+
+                  {/* <div style={{ marginBottom: 10 }}>
                     <div
                       style={{
                         display: "flex",
@@ -492,9 +495,67 @@ function EventsScreen({ myInterests }) {
                         }}
                       />
                     </div>
+                  </div> */}
+
+                  <div style={{ marginBottom: 10 }}>
+                    {/* Status row */}
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: ev.completed ? "flex-end" : "space-between",
+                        marginBottom: ev.completed ? 0 : 4,
+                      }}
+                    >
+                      {!ev.completed && (
+                        <span
+                          style={{
+                            fontSize: 11,
+                            color: COLORS.muted,
+                            fontFamily: "'DM Sans', sans-serif",
+                          }}
+                        >
+                          {ev.joinedCount}/{ev.maxParticipants} joined
+                        </span>
+                      )}
+
+                      <span
+                        style={{
+                          fontSize: 11,
+                          color: "#12931d",
+                          fontWeight: 700,
+                          fontFamily: "'DM Sans', sans-serif",
+                        }}
+                      >
+                        {ev.completed
+                          ? `${ev.joinedCount} attended`
+                          : `${ev.spotsLeft} spots left`}
+                      </span>
+                    </div>
+
+                    {/* Progress bar */}
+                    {!ev.completed && (
+                      <div
+                        style={{
+                          height: 5,
+                          background: COLORS.border,
+                          borderRadius: 3,
+                        }}
+                      >
+                        <div
+                          style={{
+                            height: "100%",
+                            width: `${(ev.joinedCount / ev.maxParticipants) * 100}%`,
+                            background: color,
+                            borderRadius: 3,
+                          }}
+                        />
+                      </div>
+                    )}
                   </div>
+
+
                   {/* CHANGED: same gradient always, slight opacity when joined, confirmation popup on leave */}
-                  <button
+                  {/* <button
                     onClick={() => handleJoinLeave(ev)}
                     style={{
                       width: "100%",
@@ -511,6 +572,27 @@ function EventsScreen({ myInterests }) {
                     }}
                   >
                     {ev.joinedByMe ? "✓ Joined!" : "Join Event"}
+                  </button> */}
+                  <button
+                    onClick={() => handleJoinLeave(ev)}
+                    disabled={ev.completed}
+                    style={{
+                      width: "100%",
+                      padding: "10px 0",
+                      background: ev.completed ? "#F44336" : color,
+                      color: "white",
+                      border: "none",
+                      borderRadius: 12,
+                      fontWeight: 700,
+                      fontSize: 13,
+                      cursor: ev.completed ? "not-allowed" : "pointer",
+                      fontFamily: "'DM Sans', sans-serif",
+                      opacity: ev.completed ? 0.6 : (ev.joinedByMe ? 0.82 : 1),
+                    }}
+                  >
+                    {ev.completed
+                      ? "Event Completed"
+                      : (ev.joinedByMe ? "✓ Joined!" : "Join Event")}
                   </button>
                 </div>
               </div>

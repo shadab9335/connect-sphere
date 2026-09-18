@@ -49,12 +49,26 @@ const CARD_BG = "#f7f0f0";
 // profilePic is no longer used here — the global app header (App.js) already
 // shows it, so this screen's own header just carries the title, search, and
 // the All/Unread tabs, without redrawing the same avatar a second time.
-function ChatListHeader({ search, setSearch, filterMode, setFilterMode, unreadTotal }) {
+function ChatListHeader({ search, setSearch, filterMode, setFilterMode, unreadTotal, onNewGroup }) {
     return (
         <div style={{ background: BG, flexShrink: 0 }}>
-            <div style={{ padding: "3px 16px 10px" }}>
+            <div style={{ padding: "3px 16px 10px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div style={{ fontSize: 25, fontWeight: 800, color: "white", fontFamily: "'emoji" }}>Messages 💬</div>
+                <button
+                    onClick={onNewGroup}
+                    title="New group"
+                    style={{
+                        position: "absolute", bottom: 90, right: 20, zIndex: 10,
+                        border: "none", borderRadius: "50%", width: 52, height: 52,
+                        background: "linear-gradient(135deg, #291b5f, rgba(108, 99, 255, 0.9))",
+                        color: "white", fontSize: 22, cursor: "pointer",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        boxShadow: "0 4px 14px rgba(108,99,255,0.45)",
+                    }}
+                >💬</button>
             </div>
+
+
 
             {/* Search — filters the list in ChatScreen */}
             <div style={{

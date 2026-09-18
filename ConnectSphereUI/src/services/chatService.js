@@ -107,7 +107,7 @@ export const getPresence = (userIds) => {
 
 const profileCache = new Map();
 
-const fetchUserProfile = async (userId) => {
+export const fetchUserProfile = async (userId) => {
     if (profileCache.has(userId)) return profileCache.get(userId);
     try {
         const res = await axios.get(`${config.USER_API}/api/users/${userId}/profile`);
@@ -162,6 +162,8 @@ export const hydrateConversation = async (raw, myId) => {
         color: colorFor(otherUserId || raw.id),
         image,
         group: isGroup,
+        createdBy: raw.createdBy || null,                    // ← new
+        participantIds: raw.participantIds || [],             // ← new
         last: raw.lastMessagePreview || "",
         lastMessageAt: raw.lastMessageAt,
         unread: raw.unreadCount || 0,
@@ -192,3 +194,26 @@ export const resolveHydratedConversation = async (bareConversation, myId) => {
     }
     return hydrateConversation(bareConversation, myId);
 };
+
+/**
+ * POST /conversations — creates a GROUP conversation. participantIds should
+ * be everyone EXCEPT the caller (the backend appends the creator itself and
+ * enforces "at least 2 others" + "must be connected to each invited member").
+ */
+export const createGroupConversation = (name, participantIds) =>
+    axios.post(BASE, { type: "GROUP", name, participantIds }, { headers: authHeader() });
+
+/** POST /conversations/{id}/members — owner-only, enforced server-side. */
+export const addGroupMember = (conversationId, memberId) =>
+    axios.post(`${BASE}/${conversationId}/members`, { memberId }, { headers: authHeader() });
+
+/** DELETE /conversations/{id}/members/{memberId} — owner-only. */
+export const removeGroupMember = (conversationId, memberId) =>
+    axios.delete(`${BASE}/${conversationId}/members/${memberId}`, { headers: authHeader() });
+
+/** DELETE /conversations/{id} — owner-only. Deletes the whole group. */
+export const deleteGroupConversation = (conversationId) =>
+    axios.delete(`${BASE}/${conversationId}`, { headers: authHeader() });
+
+export const leaveGroupConversation = (conversationId) =>
+    axios.post(`${BASE}/${conversationId}/leave`, {}, { headers: authHeader() });

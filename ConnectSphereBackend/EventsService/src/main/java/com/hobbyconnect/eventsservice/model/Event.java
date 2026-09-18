@@ -39,6 +39,8 @@ public class Event {
 
     private List<String> attendeeIds = new ArrayList<>();
 
+    private boolean completed = false;
+
     private boolean deleted = false;
     private Instant deletedAt;
     private List<String> attendeesViewedCancellation = new ArrayList<>();
@@ -50,4 +52,6 @@ public class Event {
     // Track tracking update state for notifications
     private boolean timeUpdated = false;
     private List<String> attendeesViewed = new ArrayList<>();
+
+
 }

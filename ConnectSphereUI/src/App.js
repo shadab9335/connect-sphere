@@ -688,7 +688,8 @@ const handleClearAllNotifs = async () => {
     if (!fullName) { setError("NAME_EMPTY"); return; }
     if (!password) { setError("PASSWORD_EMPTY"); return; }
     if (password.length < 6) { setError("PASSWORD_TOO_SHORT"); return; }
-    if (!/^[A-Z]/.test(password)) { setError("PASSWORD_FORMAT_INVALID"); return; }
+    // if (!/^[A-Z]/.test(password)) { setError("PASSWORD_FORMAT_INVALID"); return; }
+    if (!/[^A-Za-z0-9]/.test(password)) { setError("PASSWORD_FORMAT_INVALID"); return; }
     if (!/\d/.test(password)) { setError("PASSWORD_FORMAT_INVALID"); return; }
     if (!/@/.test(password)) { setError("PASSWORD_FORMAT_INVALID"); return; }
     if (password !== confirmPassword) { setError("PASSWORD_MISMATCH"); return; }
@@ -726,7 +727,7 @@ const handleClearAllNotifs = async () => {
     case "events": return <EventsScreen myInterests={myInterests} />;
     // case "chat": return <ChatScreen profilePic={profilePic} />;
     case "chat": return <ChatScreen profilePic={profilePic} chatTarget={chatTarget} onChatTargetHandled={() => setChatTarget(null)} />;
-    case "profile": return <ProfileScreen myInterests={myInterests} setMyInterests={setMyInterests} profilePic={profilePic} setProfilePic={setProfilePic} onLogout={() => {
+    case "profile": return <ProfileScreen myInterests={myInterests} setMyInterests={setMyInterests} profilePic={profilePic} setProfilePic={setProfilePic} onNavigateToChat={(conversation) => { setChatTarget(conversation); setTab("chat"); }} onLogout={() => {
         localStorage.removeItem("token");
         localStorage.removeItem("user");
         setProfilePic(null);

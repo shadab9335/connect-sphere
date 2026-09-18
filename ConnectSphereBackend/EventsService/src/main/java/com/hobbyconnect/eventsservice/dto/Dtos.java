@@ -59,6 +59,8 @@ public class Dtos {
         private boolean needsNotification; // true if timeUpdated is true AND user hasn't viewed it yet
         private boolean deleted;
         private boolean needsCancellationNotification;
+
+        private boolean completed;// by fasi.
     }
 
     @Data

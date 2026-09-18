@@ -163,7 +163,7 @@ public class AuthController {
     // Called by ChatService to power "search people" in the chat section.
     // excludeUserId keeps the requesting user out of their own results;
     // limit defaults to 20 if not supplied.
-    @GetMapping("/api/users/search")
+    /*@GetMapping("/api/users/search")
     public ResponseEntity<ApiResponse> searchUsers(
             @RequestParam String query,
             @RequestParam(required = false) String excludeUserId,
@@ -173,7 +173,7 @@ public class AuthController {
         // so fall back to a sentinel that can't match any real _id.
         String excludeId = (excludeUserId == null || excludeUserId.isBlank()) ? "__none__" : excludeUserId;
         return ResponseEntity.ok(userService.searchUsers(query, excludeId, limit));
-    }
+    }*/
 
     // updates to fetch users for connection suggestions and connections list:
     @GetMapping("/api/users")
