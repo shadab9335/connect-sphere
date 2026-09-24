@@ -30,4 +30,7 @@ public interface EventRepository extends MongoRepository<Event, String> {
     List<Event> findPastEventsForUser(String todayStr, String userId);
 
     List<Event> findByAttendeeIdsContainsAndDeletedTrue(String userId);
+
+    @Query("{ 'deleted': false, 'completed': false }")
+    List<Event> findByDeletedFalseAndCompletedFalse();
 }

@@ -3,8 +3,6 @@ import { COLORS, INTERESTS } from "../../constants";
 import { MobileDatePicker } from "@mui/x-date-pickers/MobileDatePicker";
 import { MobileTimePicker } from "@mui/x-date-pickers/MobileTimePicker";
 import dayjs from "dayjs";
-import { PickersTextField } from "@mui/x-date-pickers/PickersTextField";
-import { BaseDatePicker, BaseTimePicker } from "@mui/x-date-pickers";
 
 const API_BASE = "http://localhost:8083/api/events";
 
@@ -119,6 +117,7 @@ function EventsScreen({ myInterests }) {
   const [selectedInterest, setSelectedInterest] = useState("");
   const [selectedEmoji, setSelectedEmoji] = useState("🎉");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showInvalidDateDialog, setShowInvalidDateDialog] = useState(false);
 
   const resetForm = () => {
     setTitle("");
@@ -136,7 +135,8 @@ function EventsScreen({ myInterests }) {
     setError(null);
     try {
       const data = await fetchEvents();
-      setEvents(data);
+      // setEvents(data);
+      setEvents(data.filter((event) => !event.completed));
     } catch (e) {
       setError(e.message);
     } finally {
@@ -147,6 +147,22 @@ function EventsScreen({ myInterests }) {
   useEffect(() => {
     loadEvents();
   }, [loadEvents]);
+
+  // fasi-updated: Update selectedEmoji when selectedInterest changes
+  useEffect(() => {
+    if (!selectedInterest) {
+      setSelectedEmoji("🎉");
+      return;
+    }
+
+    const interest = INTERESTS.find(
+      i => i.label === selectedInterest
+    );
+
+    if (interest) {
+      setSelectedEmoji(interest.emoji);
+    }
+  }, [selectedInterest]);
 
   const orderedInterests = React.useMemo(() => {
     const userSet = new Set(myInterests || []);
@@ -187,6 +203,14 @@ function EventsScreen({ myInterests }) {
 
   const handleCreate = async () => {
     if (!title.trim()) return;
+    if (
+      date &&
+      (dayjs(date).startOf("day").isBefore(dayjs().startOf("day")) ||
+        dayjs(date).isAfter(dayjs().endOf("year")))
+    ) {
+      setShowInvalidDateDialog(true);
+      return;
+    }
     setCreating(true);
     setActionError(null);
     try {
@@ -691,6 +715,77 @@ function EventsScreen({ myInterests }) {
         </div>
       )}
 
+      {/* Invalid date dialog */}
+      {showInvalidDateDialog && (
+        <div
+          onClick={() => setShowInvalidDateDialog(false)}
+          style={{
+            position: "absolute",
+            inset: 0,
+            background: "rgba(0,0,0,0.45)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 400,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: "#fef4ffed",
+              borderRadius: 20,
+              padding: "28px 24px",
+              width: 290,
+              boxShadow: "0 8px 32px rgba(0,0,0,0.18)",
+              textAlign: "center",
+              margin: "0 20px",
+            }}
+          >
+            <div style={{ fontSize: 38, marginBottom: 10 }}>⚠️</div>
+            <div
+              style={{
+                fontWeight: 800,
+                fontSize: 17,
+                marginBottom: 8,
+                fontFamily: "'DM Sans', sans-serif",
+                color: COLORS.text,
+              }}
+            >
+              Enter valid date
+            </div>
+            <div
+              style={{
+                fontSize: 13,
+                color: "#64748B",
+                marginBottom: 24,
+                fontFamily: "'DM Sans', sans-serif",
+                lineHeight: 1.5,
+              }}
+            >
+              You cannot create an event for a date in the past. Please
+              select today or a future date.
+            </div>
+            <button
+              onClick={() => setShowInvalidDateDialog(false)}
+              style={{
+                width: "100%",
+                padding: "11px 0",
+                borderRadius: 12,
+                border: "none",
+                background: EVENT_COLOR,
+                color: "white",
+                fontWeight: 700,
+                fontSize: 13,
+                cursor: "pointer",
+                fontFamily: "'DM Sans', sans-serif",
+              }}
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Create Modal
         {showCreate && (
             <div style={{
@@ -1001,13 +1096,34 @@ function EventsScreen({ myInterests }) {
               {/* Modern Date Picker */}
               <MobileDatePicker
                 value={date ? dayjs(date) : null}
-                onChange={(newValue) =>
-                  setDate(newValue ? newValue.format("YYYY-MM-DD") : "")
-                }
+                disablePast
+                minDate={dayjs()}
+                maxDate={dayjs().endOf("year")}
+                onChange={(newValue) => {
+                  // Only reflect fully-typed, valid dates while the user is
+                  // still entering day/month/year — don't validate yet,
+                  // since intermediate sections aren't complete.
+                  setDate(newValue && newValue.isValid() ? newValue.format("YYYY-MM-DD") : "");
+                }}
+                onAccept={(newValue) => {
+                  if (newValue && newValue.isValid()) {
+                    const today = dayjs().startOf("day");
+                    const yearEnd = dayjs().endOf("year");
+                    if (
+                      newValue.startOf("day").isBefore(today) ||
+                      newValue.isAfter(yearEnd)
+                    ) {
+                      setShowInvalidDateDialog(true);
+                      setDate("");
+                    }
+                  }
+                }}
                 slotProps={{
                   textField: {
                     fullWidth: true,
                     placeholder: "MM/DD/YYYY",
+                    onKeyDown: (e) => e.preventDefault(),
+                    onPaste: (e) => e.preventDefault(),
                     sx: {
                       flex: 1,
                       backgroundColor: "#ffffff",
@@ -1015,9 +1131,11 @@ function EventsScreen({ myInterests }) {
                       border: `1.5px solid ${COLORS.border}`,
                       boxSizing: "border-box",
                       height: "43px", // Forces entire component height
+                      cursor: "pointer",
                       "& .MuiOutlinedInput-root": {
                         height: "100%",
                         paddingRight: "10px",
+                        cursor: "pointer",
                         "& fieldset": { border: "none" }, // Removes internal duplicate borders
                       },
                       "& .MuiInputBase-input": {

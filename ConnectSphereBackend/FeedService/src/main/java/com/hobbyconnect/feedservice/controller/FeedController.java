@@ -295,4 +295,28 @@ public class FeedController {
         notificationRepo.deleteAllByRecipientUserId(userId);
         return ResponseEntity.ok(ApiResponse.ok("All notifications cleared", null));
     }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // INTERNAL — service-to-service notification creation
+    // Called by other microservices (e.g. UserAndInterest when two users
+    // connect) so they don't need their own Notification collection.
+    // ─────────────────────────────────────────────────────────────────────────
+
+    @PostMapping("/notifications/internal")
+    public ResponseEntity<ApiResponse<Notification>> createInternalNotification(
+            @Valid @RequestBody CreateNotificationRequest request) {
+        Notification notif = new Notification();
+        notif.setRecipientUserId(request.getRecipientUserId());
+        notif.setActorUserId(request.getActorUserId());
+        notif.setActorName(request.getActorName());
+        notif.setActorProfilePic(request.getActorProfilePic());
+        if (request.getType() != null) {
+            notif.setType(request.getType());
+        }
+        notif.setMessage(request.getMessage());
+
+        Notification saved = notificationRepo.save(notif);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.ok("Notification created", saved));
+    }
 }
