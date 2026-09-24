@@ -26,9 +26,18 @@ public class EventsService {
     private final EventRepository eventRepository;
     private final UserServiceClient userServiceClient;
 
+    /*// GET /api/events
+    public List<EventResponse> getEvents(String requestingUserId) {
+        List<Event> events = eventRepository.findByDeletedFalseOrderByCreatedAtDesc();
+        return events.stream()
+                .map(ev -> toResponse(ev, requestingUserId))
+                .collect(Collectors.toList());
+    }*/
+
     // GET /api/events
     public List<EventResponse> getEvents(String requestingUserId) {
         List<Event> events = eventRepository.findByDeletedFalseOrderByCreatedAtDesc();
+        updateCompletedEvents(); //  new change
         return events.stream()
                 .map(ev -> toResponse(ev, requestingUserId))
                 .collect(Collectors.toList());
@@ -392,6 +401,26 @@ public class EventsService {
                 LocalDateTime.parse(eventDateTime);
 
         return !eventStart.isAfter(LocalDateTime.now());
+    }
+
+    public void updateCompletedEvents() {
+        List<Event> activeEvents =
+                eventRepository.findByDeletedFalseAndCompletedFalse();
+
+        LocalDateTime now = LocalDateTime.now();
+
+        for (Event event : activeEvents) {
+            LocalDateTime eventStart = LocalDateTime.parse(
+                    event.getDate() + "T" + event.getTime()
+            );
+
+            if (!eventStart.isAfter(now)) {
+                event.setCompleted(true);
+                event.setUpdatedAt(Instant.now());
+                eventRepository.save(event);
+            }
+        }
+        log.debug("Event DB is updated.");
     }
 
 

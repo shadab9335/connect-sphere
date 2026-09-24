@@ -585,6 +585,11 @@ export default function App() {
       .catch(() => {});
 
     loadNotifications();
+
+    // Poll for new notifications (e.g. connection requests, post likes)
+    // while the app is open, so the bell badge updates without a reload.
+    const notifPollId = setInterval(loadNotifications, 20000);
+    return () => clearInterval(notifPollId);
   }, [onboarded]);
 
   // Handle single notification dismissal
@@ -721,7 +726,8 @@ const handleClearAllNotifs = async () => {
 
   const renderTab = () => {
     switch (tab) {
-    case "feed": return <FeedScreen myInterests={myInterests} profilePic={profilePic} />;
+    // case "feed": return <FeedScreen myInterests={myInterests} profilePic={profilePic} />;
+    case "feed": return <FeedScreen myInterests={myInterests} profilePic={profilePic} onNavigateToChat={(conversation) => { setChatTarget(conversation); setTab("chat"); }} />;
     // case "discover": return <DiscoverScreen myInterests={myInterests} setMyInterests={setMyInterests} />;
     case "discover": return <DiscoverScreen myInterests={myInterests} setMyInterests={setMyInterests} setTab={setTab} setChatTarget={setChatTarget} />;
     case "events": return <EventsScreen myInterests={myInterests} />;
@@ -1123,7 +1129,7 @@ const handleClearAllNotifs = async () => {
                     />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 12, fontWeight: 700, color: COLORS.text || '#1b1d23', fontFamily: "'DM Sans', sans-serif" }}>
-                        <strong>{item.actorName}</strong> liked your post.
+                        {item.message || <><strong>{item.actorName}</strong> liked your post.</>}
                       </div>
                     </div>
                   </div>

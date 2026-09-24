@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import Avatar from "../../components/Avatar";
 import { COLORS } from "../../constants";
+import UserProfilePage from "../../components/UserProfilePage";
 import {
     fetchFeed, createPost, likePost, unlikePost, bookmarkPost, unbookmarkPost
 } from "../../services/feedService";
@@ -75,13 +76,24 @@ const getCurrentUserId = () => {
     } catch { return ""; }
 };
 
+const getRelativeTime = (dateStr) => {
+    const diff = Math.floor((Date.now() - new Date(dateStr)) / 1000);
+    if (diff < 60) return `${diff}s ago`;
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+    if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
+    if (diff < 2592000) return `${Math.floor(diff / 604800)}w ago`;
+    if (diff < 31536000) return `${Math.floor(diff / 2592000)}mo ago`;
+    return `${Math.floor(diff / 31536000)}y ago`;
+};
+
 const normalizePost = (p) => ({
     ...p,
     user: p.anonymous ? "Anonymous" : p.displayName,
     avatar: p.anonymous ? "?" : p.avatar,
     color: p.anonymous ? COLORS.muted : p.avatarColor,
     profilePicture: p.anonymous ? null : p.profilePicture,
-    time: new Date(p.createdAt).toLocaleString(),
+    time: getRelativeTime(p.createdAt),
     likes: p.likeCount,
     replies: p.replyCount,
     anon: p.anonymous,
@@ -142,7 +154,7 @@ function MediaSlider({ mediaList }) {
     );
 }
 
-function FeedScreen({ myInterests, profilePic }) {
+function FeedScreen({ myInterests, profilePic, onNavigateToChat }) {
 
     // Build tabs directly from the myInterests prop.
     // App.js sets myInterests = user.interests immediately on login and passes
@@ -174,6 +186,7 @@ function FeedScreen({ myInterests, profilePic }) {
     const [notificationType, setNotificationType] = useState(null);
     const [activeCommentPostId, setActiveCommentPostId] = useState(null);
     const [isCommentModalOpen, setIsCommentModalOpen] = useState(false);
+    const [selectedUserId, setSelectedUserId] = useState(null);
 
     const loadFeed = async (tag, before) => {
         setLoading(true);
@@ -393,6 +406,16 @@ function FeedScreen({ myInterests, profilePic }) {
     const filtered = activeTab === "All" ? posts : posts.filter(p => p.tag === activeTab);
     const myUserId = getCurrentUserId();
 
+    if (selectedUserId) {
+        return (
+            <UserProfilePage
+                userId={selectedUserId}
+                onClose={() => setSelectedUserId(null)}
+                onNavigateToChat={onNavigateToChat}
+            />
+        );
+    }
+
     return (
         <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", position: "relative", background: "linear-gradient(135deg, #FFE0D6, #f3c7da)", borderRadius: "10px 10px 0px 0px", borderTop: "3px solid #f3f3f3d1" }}>
 
@@ -509,15 +532,17 @@ function FeedScreen({ myInterests, profilePic }) {
 
                             <div style={{ padding: "12px 14px", backgroundColor: "#f7f0f0" }}>
                                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-                                    <Avatar initials={post.avatar} color={post.color} size={36}
-                                        // image={!post.anon && post.userId === myUserId ? profilePic : null} 
-                                        image={ post.anon ? null : (post.userId === myUserId ? profilePic : post.profilePicture)  }/>
-                                    <div style={{ flex: 1 }}>
-                                        <div style={{ fontWeight: 700, fontSize: 13, color: COLORS.text, fontFamily: "'DM Sans', sans-serif", display: "flex", alignItems: "center", gap: 6 }}>
-                                            {post.user}
-                                            {post.anon && <span style={{ fontSize: 10, background: "#F0F4FF", color: COLORS.muted, borderRadius: 6, padding: "2px 6px" }}>Anon</span>}
+                                    <div onClick={() => !post.anon && post.userId !== myUserId && setSelectedUserId(post.userId)}
+                                        style={{ cursor: !post.anon && post.userId !== myUserId ? "pointer" : "default", display: "flex", alignItems: "center", gap: 10, flex: 1 }}>
+                                        <Avatar initials={post.avatar} color={post.color} size={36}
+                                            image={post.anon ? null : (post.userId === myUserId ? profilePic : post.profilePicture)} />
+                                        <div style={{ flex: 1 }}>
+                                            <div style={{ fontWeight: 700, fontSize: 13, color: COLORS.text, fontFamily: "'DM Sans', sans-serif", display: "flex", alignItems: "center", gap: 6 }}>
+                                                {post.user}
+                                                {post.anon && <span style={{ fontSize: 10, background: "#F0F4FF", color: COLORS.muted, borderRadius: 6, padding: "2px 6px" }}>Anon</span>}
+                                            </div>
+                                            <div style={{ fontSize: 11, color: COLORS.muted, fontFamily: "'DM Sans', sans-serif" }}>{post.time}</div>
                                         </div>
-                                        <div style={{ fontSize: 11, color: COLORS.muted, fontFamily: "'DM Sans', sans-serif" }}>{post.time}</div>
                                     </div>
                                     <span style={{ fontSize: 10, fontWeight: 700, color: TAG_COLOR, background: `${TAG_COLOR}15`, borderRadius: 8, padding: "3px 8px", fontFamily: "'DM Sans', sans-serif" }}>
                                         #{post.tag}

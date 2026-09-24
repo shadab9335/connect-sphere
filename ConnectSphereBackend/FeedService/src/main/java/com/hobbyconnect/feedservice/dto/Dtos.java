@@ -43,6 +43,25 @@ public class Dtos {
         private boolean anonymous;
     }
 
+    // ── CreateNotificationRequest ─────────────────────────────────────────────
+    // Used by other microservices (e.g. UserAndInterest's connect flow) to
+    // create a notification for a user via the internal endpoint.
+    @Data
+    public static class CreateNotificationRequest {
+        @NotBlank(message = "recipientUserId is required")
+        private String recipientUserId;
+
+        @NotBlank(message = "actorUserId is required")
+        private String actorUserId;
+
+        private String actorName;
+        private String actorProfilePic;
+        private String type;
+
+        @NotBlank(message = "message is required")
+        private String message;
+    }
+
     // ── FeedPostResponse ──────────────────────────────────────────────────────
     @Data
     public static class FeedPostResponse {

@@ -270,6 +270,7 @@ public class ConnectionService {
     private final UserRepository userRepository;
     private final ConnectionRepository connectionRepository;
     private final MongoTemplate mongoTemplate;
+    private final FeedServiceClient feedServiceClient;
 
     public ApiResponse connectUser(
             String firstUserId,
@@ -366,6 +367,16 @@ public class ConnectionService {
             String message = newlyCreated
                     ? "Users connected successfully"
                     : "Users are already connected";
+
+            if (newlyCreated) {
+                feedServiceClient.createConnectionNotification(
+                        normalizedSecondUserId,
+                        normalizedFirstUserId,
+                        firstUser.getFullName(),
+                        firstUser.getProfilePicture(),
+                        firstUser.getFullName() + " connected with you!"
+                );
+            }
 
             log.info(
                     "Connect completed. First user: {}, Second user: {}",

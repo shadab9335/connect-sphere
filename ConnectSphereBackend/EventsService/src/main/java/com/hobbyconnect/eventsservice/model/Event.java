@@ -6,6 +6,7 @@ import lombok.AllArgsConstructor;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.index.Indexed;
+import org.springframework.data.mongodb.repository.Query;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -52,6 +53,5 @@ public class Event {
     // Track tracking update state for notifications
     private boolean timeUpdated = false;
     private List<String> attendeesViewed = new ArrayList<>();
-
 
 }
